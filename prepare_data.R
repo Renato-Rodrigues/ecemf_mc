@@ -213,17 +213,12 @@ df_onlyModel <- calc_addVariable(df_onlyModel, "`Emissions|CO2|Industrial Proces
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Demand|Industry`" = "`Emissions|CO2|Energy|Demand|Industry` + 1/3 * `Carbon Capture|Storage|Biomass`", units = "EJ/yr")
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Industrial Processes`" = "`Emissions|CO2|Industrial Processes` ", units = "EJ/yr")
 #df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Other`" = "`Emissions|CO2|Energy|Supply|Other` ", units = "EJ/yr")
-
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|H2`" = "`Emissions|CO2|Energy|Supply|Hydrogen` + (`Carbon Capture|Storage` * ( `Emissions|CO2|Energy|Supply|Hydrogen` / ( `Emissions|CO2|Energy|Supply|Electricity` + `Emissions|CO2|Energy|Supply|Hydrogen` ) ) )", units = "EJ/yr")
-
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|H2`" = "`Emissions|CO2|Energy|Supply|Hydrogen`", units = "EJ/yr")
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Solids`" = "`Emissions|CO2|Energy|Supply|Solids` ", units = "EJ/yr")
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Liquids`" = "`Emissions|CO2|Energy|Supply|Liquids` ", units = "EJ/yr")
-
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Gases`" = "`Emissions|CO2|Energy|Supply|Gases` + 2/3 * `Carbon Capture|Storage|Biomass`", units = "EJ/yr")
-
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Heat`" = "`Emissions|CO2|Energy|Supply|Heat` ", units = "EJ/yr")
-
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Electricity`" = "`Emissions|CO2|Energy|Supply|Electricity` + ( `Carbon Capture|Storage` * ( `Emissions|CO2|Energy|Supply|Electricity` / (`Emissions|CO2|Energy|Supply|Electricity` + `Emissions|CO2|Energy|Supply|Hydrogen`) ) )", units = "EJ/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Electricity`" = "`Emissions|CO2|Energy|Supply|Electricity`", units = "EJ/yr")
 
 df <- rbind(df_woModel, df_onlyModel)
 
