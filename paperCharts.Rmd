@@ -52,6 +52,11 @@ output:
 
 downloadData <- FALSE
 
+# define models groups
+modelsFullSystem   <- c("IMAGE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH")
+modelsElecall      <- c("IMAGE","LIMES", "MEESA","OSeMBE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH")
+modelsPowerEmi2040 <- c("IMAGE","LIMES", "MEESA","OSeMBE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH")
+
 # select data file
 dataFolder <- sort(list.dirs(path = "./data", full.names = TRUE, recursive = FALSE), decreasing = T)[1]
 time <- basename(dataFolder)
@@ -93,6 +98,7 @@ color <- c(
   #model
   "Historical" = "black",
   "mean" = "#c0c0c0",
+  "median" = "#555555",
   "IMAGE" = "#00ffff",
   "Euro-Calliope" = "#84eab3",
   "MESSAGE" = "#800080",
@@ -110,6 +116,7 @@ color <- c(
 modelLinetype <- c(
   "Historical" = "solid",
   "mean" = "42", # dashed, 4 points on, one off
+  "median" = "solid",
   "IMAGE" =       "solid" ,
   "Euro-Calliope" = "solid", 
   "MESSAGE" =    "solid",
@@ -127,6 +134,7 @@ modelLinetype <- c(
 modelAlpha <- c(
   "Historical" =      1,
   "mean" =            1,
+  "median" =          1,
   "IMAGE" =         0.5,
   "Euro-Calliope" = 0.5,
   "MESSAGE" =       0.5,
@@ -144,6 +152,7 @@ modelAlpha <- c(
 modelsOrder <- c(
   "Historical",
   "mean",
+  "median",
   "OSeMBE",
   "MEESA",
   "LIMES",
@@ -162,6 +171,7 @@ modelsOrder <- c(
 modelShape <- c(
   "Historical"    = NA, 
   "mean"          = NA, 
+  "median"        = 21,
   "IMAGE"         = 21,
   "Euro-Calliope" = 21, 
   "MESSAGE"       = 21, 
@@ -175,8 +185,6 @@ modelShape <- c(
   "MEESA"         = 23, 
   "OSeMBE"        = 23 
 )
-
-modelsFullSystem   <-  c("IMAGE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","TIAM-ECN 1.2","WITCH")
 
 ``` 
 
@@ -194,8 +202,8 @@ theme_paper <- function(){
       panel.grid.major = element_line(colour = "grey90", size = .7),
       panel.grid.minor = element_line(colour = "grey95", size = .7),
       plot.background = element_rect(fill="#FFFFFF", color = NA),
-      panel.grid.major.y = element_line(linetype = "dashed"),
-      panel.grid.minor.y = element_blank(),
+      #panel.grid.major.y = element_line(linetype = "dashed"),
+      #panel.grid.minor.y = element_line(linetype = "dashed"),
       panel.grid.major.x = element_blank(),
       panel.grid.minor.x = element_blank(),
       plot.margin = margin(r = 20, l = 20),
@@ -243,10 +251,20 @@ def <- list(
     alpha = 0.5
   ),
   model = list(
-    lineSize = 1.5,
-    pointSize = 1.5,
+    lineSize = 0.8,
+    pointSize = 0.5,
     pointStroke = 1.5,
-    shape = 21
+    shape = 21,
+    smallPointSize = 0.5,
+    smallPointStroke = 1
+  ),
+  median = list(
+    lineSize = 2,
+    pointSize = 2,
+    pointStroke = 2,
+    shape = 21,
+    smallPointSize = 1,
+    smallPointStroke = 1
   ),
   decadeChange = list(
     lineSize = 0.5,
@@ -274,18 +292,15 @@ dir.create(paste0(outFolder, "/paperCharts/svg"), showWarnings = FALSE, recursiv
 
 <!-- Greenhouse gas emissions for scenarios reaching climate neutrality by 2050 -->
 
-<!-- Decadal average of the annual percentage change in the mean model results, expressed relative to 1990 baseline values, shown in blue. -->
+<!-- Decadal average of the annual percentage change in the median model results, expressed relative to 1990 baseline values, shown in blue. -->
 
 ```{r figure_1, echo=FALSE, include=FALSE}
 
 plotDataRaw <- df %>%
   filter(variable == "Emi|Kyoto Gases|synthetic",
-         period >=2005, period <= 2050,
+         period >=2010, period <= 2050,
          scenario %in% c("WP1 NetZero"),
          model %in% modelsFullSystem, 
-         model != "PRIMES" | period != 2005,
-         model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015) ),
-         model != "TIAM-ECN 1.2" | ! (period %in% c(2005,2010,2015) ),
          region == "EU27 & UK (*)") %>%
   rbind(
     df %>%
@@ -318,16 +333,16 @@ plotData <- plotDataRaw %>%
     plotDataRaw %>%
       filter(model != "Historical") %>%
       group_by(scenario, region, variable, unit, period) %>%
-      summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+      summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
-      rename(value = mean_value) %>%
-      mutate(model = "mean") %>%
+      rename(value = median_value) %>%
+      mutate(model = "median") %>%
       select(all_of(names(plotDataRaw)))
   ) %>%
   mutate(model = factor(model, levels=rev(modelsOrder)))
 
 decade_change <- plotData %>% 
-  filter(model == "mean", period %% 10 == 0, period > 2020) %>%
+  filter(model == "median", period %% 10 == 0, period > 2020) %>%
   rbind(
     plotData %>%
       filter(model == "Historical", period %% 10 == 0, period <= 2020)
@@ -346,8 +361,11 @@ decade_change <- plotData %>%
     x = (period + prev_period) / 2,
     y = (value + prev_value) / 2,
     vAlign = case_when(
-      period == 2050 ~ 1.5,
-      TRUE ~ -0.5
+      period == 2000 ~ -0.5, 
+      period == 2020 ~ -2.5, 
+      period %in% c(2030, 2040) ~ -3.0,
+      #period == 2050 ~ 1.5,
+      TRUE ~ -1.5
     )
   )
 
@@ -375,12 +393,14 @@ for( chart in names(g_data)){
     annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
     annotate("text", x = 2005, y = 3000, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
     geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-    geom_line(size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-    geom_point(data = g_data[[chart]][["data"]] %>% filter(!(model %in% c("Historical", "mean")), period > 2023), shape = def$model$shape, aes(colour = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-    geom_line(data=g_data[[chart]][["decade_change"]], aes(y = value/5), size=def$decadeChange$wideLineSize, linetype="solid", color = "#90D5FF", alpha=def$decadeChange$wideAlpha) +
-    geom_line(data=g_data[[chart]][["decade_change"]], aes(y = value/5), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
-    geom_point(data=g_data[[chart]][["decade_change"]], aes(y = value/5), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
-    geom_label(data = g_data[[chart]][["decade_change"]] %>% filter(!is.na(prev_value)), aes(x = x, y = y/5, label = paste0(round(change_percentage, 1), "% yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
+    geom_line(data=g_data[[chart]][["data"]] %>% filter(model != "median"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+    geom_point(data = g_data[[chart]][["data"]] %>% filter(!(model %in% c("Historical", "median")), period > 2023), shape = def$median$shape, aes(colour = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+    geom_line(data=g_data[[chart]][["data"]] %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) +
+    geom_point(data = g_data[[chart]][["data"]] %>% filter(model == "median"), shape = def$median$shape, aes(colour = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
+    #geom_line(data=g_data[[chart]][["decade_change"]], aes(y = value), size=def$decadeChange$wideLineSize, linetype="solid", color = "#90D5FF", alpha=def$decadeChange$wideAlpha) +
+    #geom_line(data=g_data[[chart]][["decade_change"]], aes(y = value), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
+    #geom_point(data=g_data[[chart]][["decade_change"]], aes(y = value), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
+    geom_label(data = g_data[[chart]][["decade_change"]] %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
     theme_paper() +
     facet_wrap(~ variable) + 
     scale_color_manual(values = setNames(color[levels(plotData$model)],levels(plotData$model))) +
@@ -436,17 +456,15 @@ g[["Figure 1.a"]] <- gridExtra::arrangeGrob(
 
 <!-- Electricity Supply CO2 emissions -->
 
-<!-- Decadal average of the annual percentage change in the mean model results, expressed relative to 2000 baseline values, shown in blue. -->
+<!-- Decadal average of the annual percentage change in the median model results, expressed relative to 2000 baseline values, shown in blue. -->
 
 ```{r figure 1.b, echo=FALSE, include=FALSE}
 
 plotDataRaw <- df %>%
   filter(variable == "Emissions|CO2|Energy|Supply|Electricity",
-         period >=2005, period <= 2050,
+         period >=2010, period <= 2050,
          scenario %in% c("WP1 NetZero"),
-         model != "PRIMES" | period != 2005,
-         model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015) ),
-         model != "TIAM-ECN 1.2" | ! (period %in% c(2005,2010,2015) ),
+         model %in% modelsElecall, 
          region == "EU27 & UK (*)") %>%
   rbind(
     histData %>%
@@ -462,16 +480,16 @@ plotData <- plotDataRaw %>%
     plotDataRaw %>%
       filter(model != "Historical") %>%
       group_by(scenario, region, variable, unit, period) %>%
-      summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+      summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
-      rename(value = mean_value) %>%
-      mutate(model = "mean") %>%
+      rename(value = median_value) %>%
+      mutate(model = "median") %>%
       select(all_of(names(plotDataRaw)))
   ) %>%
   mutate(model = factor(model, levels=rev(modelsOrder)))
 
 decade_change <- plotData %>% 
-  filter(model == "mean", period %% 10 == 0, period > 2020) %>%
+  filter(model == "median", period %% 10 == 0, period > 2020) %>%
   rbind(
     plotData %>%
       filter(model == "Historical", period %% 10 == 0, period <= 2020)
@@ -490,34 +508,9 @@ decade_change <- plotData %>%
     x = (period + prev_period) / 2,
     y = (value + prev_value) / 2,
     vAlign = case_when(
-      period == 2050 ~ 1.5,
-      TRUE ~ -0.5
-    )
-  )
-
-decade_change <- plotData %>% 
-  filter(model == "mean", period %% 10 == 0, period > 2020) %>%
-  rbind(
-    plotData %>%
-      filter(model == "Historical", period %% 10 == 0, period <= 2020)
-  ) %>%
-  select(period, variable, value) %>%
-  arrange(variable,period) %>%
-  group_by(variable) %>%
-  mutate(
-    change_in_10_years = value - lag(value),
-    change_percentage = ((change_in_10_years) / value[period == 2000])/10 * 100,
-    prev_period = lag(period),
-    prev_value = lag(value)
-  ) %>%
-  #filter(!is.na(prev_period)) %>%
-  mutate(
-    x = (period + prev_period) / 2,
-    y = (value + prev_value) / 2,
-    vAlign = case_when(
-      period == 2040 ~ 1.8,
-      period == 2050 ~ -1,
-      TRUE ~ -0.5
+      #period == 2040 ~ 1.8,
+      period %in% c(2020,2030) ~ -3.0,
+      TRUE ~ -1.5
     )
   )
 
@@ -526,12 +519,14 @@ g[["Figure 1.b"]] <- ggplot(plotData,aes(x=period,y=value)) +
   annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2010, y = 750, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-  geom_line(size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-  geom_point(data = plotData %>% filter(period > 2023), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-  geom_line(data=decade_change, aes(y = value/5), size=def$decadeChange$wideLineSize, linetype="solid", color = "#90D5FF", alpha=def$decadeChange$wideAlpha) +
-  geom_line(data=decade_change, aes(y = value/5), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
-  geom_point(data=decade_change, aes(y = value/5), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
-  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y/5, label = paste0(round(change_percentage, 1), "% yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
+  geom_line(data=plotData %>% filter(model != "median"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(model != "median", period > 2023), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
+  #geom_line(data=decade_change, aes(y = value), size=def$decadeChange$wideLineSize, linetype="solid", color = "#90D5FF", alpha=def$decadeChange$wideAlpha) +
+  #geom_line(data=decade_change, aes(y = value), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
+  #geom_point(data=decade_change, aes(y = value), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
+  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
   theme_paper() + 
   scale_color_manual(values = setNames(color[levels(plotData$model)], levels(plotData$model))) +
   scale_alpha_manual(values = modelAlpha) +
@@ -572,15 +567,15 @@ g[["Figure 1.b"]] <- ggplot(plotData,aes(x=period,y=value)) +
 g[["Figure 1"]] <- gridExtra::arrangeGrob(
   g$`Emi|Kyoto Gases|synthetic` + 
     theme(legend.position="none") + 
-    labs(title = "1.a) GHG Emissions", subtitle = expression(paste("Mt ", CO[2]," eq/yr"))) +
+    labs(title = "(a) GHG Emissions", subtitle = expression(paste("Mt ", CO[2]," eq/yr"))) +
     theme(plot.margin = margin(b = 10, r=20)),
   g$`Emissions|CO2|Energy and Industrial Processes` +
     theme(legend.position="none") +
-    labs(title = expression(paste("1.b) ", CO[2], " Emissions - energy and industrial processes")), subtitle = expression(paste("Mt ", CO[2]," eq/yr"))) +
+    labs(title = expression(paste("(b) ", CO[2], " Emissions - energy and industrial processes")), subtitle = expression(paste("Mt ", CO[2]," eq/yr"))) +
     theme(plot.margin = margin(b = 10, r=20)),
   g[["Figure 1.b"]] + 
     theme(plot.margin = margin(r = 60, t = 10), legend.margin = margin(l = 80)) + 
-    labs(title = expression(paste("1.c) Electricity Supply ", CO[2]," Emissions")), subtitle = expression(paste("Mt ", CO[2]," eq/yr"))),
+    labs(title = expression(paste("(c) Electricity Supply ", CO[2]," Emissions")), subtitle = expression(paste("Mt ", CO[2]," eq/yr"))),
   layout_matrix = rbind(c(1, 2),
                         c(3, 3))
    )
@@ -598,7 +593,7 @@ grid.draw(g[["Figure 1"]])
 
 ```
 
-Figure 1. Emissions panel (EU27 and UK). Historical UNFCCC (figure 1.a and 1.b) and Ember (Figure 1.c) data shown in black. Decadal average of the annual percentage change in the mean model results, expressed relative to 1990 (figure 1.a and 1.b) or 2000 (figure 1.c) baseline values, shown in blue.
+Figure 1. Emissions panel (EU27 and UK). Historical UNFCCC (figure 1.a and 1.b) and Ember (Figure 1.c) data shown in black. Decadal average of the annual percentage change in the median model results, expressed relative to 1990 (figure 1.a and 1.b) or 2000 (figure 1.c) baseline values, shown in blue.
 
 ---
 
@@ -610,11 +605,9 @@ Figure 1. Emissions panel (EU27 and UK). Historical UNFCCC (figure 1.a and 1.b) 
 
 plotDataRaw <- df %>%
   filter(variable == "Secondary Energy|Electricity|WindSolar",
-         period >=2005, period <= 2050,
+         period >=2010, period <= 2050,
          scenario %in% c("WP1 NetZero"),
-         model != "PRIMES" | period != 2005,
-         model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015)),
-         model != "TIAM-ECN 1.2" | ! (period %in% c(2005,2010,2015) ),
+         model %in% modelsElecall, 
          region == "EU27 & UK (*)") %>%
   rbind(
     histData %>%
@@ -631,16 +624,16 @@ plotData <- plotDataRaw %>%
     plotDataRaw %>%
       filter(model != "Historical") %>%
       group_by(scenario, region, variable, unit, period) %>%
-      summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+      summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
-      rename(value = mean_value) %>%
-      mutate(model = "mean") %>%
+      rename(value = median_value) %>%
+      mutate(model = "median") %>%
       select(all_of(names(plotDataRaw)))
   ) %>%
   mutate(model = factor(model, levels=rev(modelsOrder)))
 
 decade_change <- plotData %>% 
-  filter(model == "mean", period %% 10 == 0, period > 2020) %>%
+  filter(model == "median", period %% 10 == 0, period > 2020) %>%
   rbind(
     plotData %>%
       filter(model == "Historical", period %% 10 == 0, period <= 2020)
@@ -659,11 +652,11 @@ decade_change <- plotData %>%
     x = (period + prev_period) / 2,
     y = (value + prev_value) / 2,
     vAlign = case_when(
-      period == 2010 ~ 1.35,
-      period == 2020 ~ 1.5,
-      period == 2030 ~ 1.9,
-      period == 2050 ~ 1.5,
-      TRUE ~ 1.2
+      #period == 2010 ~ 1.35,
+      #period == 2020 ~ 1.5,
+      #period == 2030 ~ 1.9,
+      #period == 2050 ~ 1.5,
+      TRUE ~ -1.5
     )
   )
 
@@ -672,31 +665,30 @@ g[["Electricity Generation from Wind and Solar"]] <- ggplot(plotData,aes(x=perio
   annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2012, y = 5000, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-  geom_line(size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-  geom_point(data = plotData %>% filter(period > 2023), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-  geom_line(data=decade_change, aes(y = value/5), size=5, linetype="solid", color = "#90D5FF", alpha=0.3) +
-  geom_line(data=decade_change, aes(y = value/5), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
-  geom_point(data=decade_change, aes(y = value/5), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
-  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y/5, label = paste0(round(change_percentage, 1), "% yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
+  geom_line(data = plotData %>% filter(model != "median"),size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(period > 2023, model != "median"), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
+  #geom_line(data=decade_change, aes(y = value), size=5, linetype="solid", color = "#90D5FF", alpha=0.3) +
+  #geom_line(data=decade_change, aes(y = value), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
+  #geom_point(data=decade_change, aes(y = value), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
+  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
   theme_paper() +
   scale_color_manual(values = setNames(color[levels(plotData$model)],levels(plotData$model))) +
   scale_alpha_manual(values = modelAlpha) +
   scale_linetype_manual(values = modelLinetype) +
   scale_shape_manual(values = modelShape) +
-  labs(title = "2.a) Electricity Generation from Wind and Solar", subtitle = "TWh/yr") + 
+  labs(title = "(a) Electricity Generation from Wind and Solar", subtitle = "TWh/yr") + 
   scale_x_continuous(expand = c(0, 0)) +
   coord_cartesian(clip = 'off') +
   theme(strip.text = element_blank()) +
   expand_limits(y = c(0,1))
 
-
 plotDataRaw <- df %>%
   filter(variable == "Secondary Energy|Electricity|VRE Share",
-         period >=2005, period <= 2050,
+         period >=2010, period <= 2050,
          scenario %in% c("WP1 NetZero"),
-         model != "PRIMES" | period != 2005,
-         model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015) ),
-         model != "TIAM-ECN 1.2" | ! (period %in% c(2005,2010,2015) ),
+         model %in% modelsElecall, 
          region == "EU27 & UK (*)") %>%
   rbind(
     histData %>%
@@ -713,16 +705,16 @@ plotData <- plotDataRaw %>%
     plotDataRaw %>%
       filter(model != "Historical") %>%
       group_by(scenario, region, variable, unit, period) %>%
-      summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+      summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
-      rename(value = mean_value) %>%
-      mutate(model = "mean") %>%
+      rename(value = median_value) %>%
+      mutate(model = "median") %>%
       select(all_of(names(plotDataRaw)))
   ) %>%
   mutate(model = factor(model, levels=rev(modelsOrder)))
 
 decade_change <- plotData %>% 
-  filter(model == "mean", period %% 10 == 0, period > 2020) %>%
+  filter(model == "median", period %% 10 == 0, period > 2020) %>%
   rbind(
     plotData %>%
       filter(model == "Historical", period %% 10 == 0, period <= 2020)
@@ -741,10 +733,10 @@ decade_change <- plotData %>%
     x = (period + prev_period) / 2,
     y = (value + prev_value) / 2,
     vAlign = case_when(
-      period == 2010 ~ 1.35,
-      period == 2020 ~ 1.7,
-      period == 2030 ~ 1.4,
-      TRUE ~ -0.5
+      #period == 2010 ~ 1.35,
+      #period == 2020 ~ 1.7,
+      #period == 2030 ~ 1.4,
+      TRUE ~ -1.5
     )
   )
 
@@ -753,18 +745,20 @@ g[["Share in electricity generation"]] <- ggplot(plotData,aes(x=period,y=value))
   annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2012, y = 0.5, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-  geom_line(size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-  geom_point(data = plotData %>% filter(period > 2023), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-  geom_line(data=decade_change, aes(y = value/5), size=5, linetype="solid", color = "#90D5FF", alpha=0.3) +
-  geom_line(data=decade_change, aes(y = value/5), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
-  geom_point(data=decade_change, aes(y = value/5), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
-  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y/5, label = paste0(round(change_percentage, 1), "% yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
+  geom_line(data=plotData %>% filter(model != "median"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(period > 2023, model != "median"), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
+  #geom_line(data=decade_change, aes(y = value), size=5, linetype="solid", color = "#90D5FF", alpha=0.3) +
+  #geom_line(data=decade_change, aes(y = value), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
+  #geom_point(data=decade_change, aes(y = value), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
+  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
   theme_paper() +
   scale_color_manual(values = setNames(color[levels(plotData$model)],levels(plotData$model))) +
   scale_alpha_manual(values = modelAlpha) +
   scale_linetype_manual(values = modelLinetype) +
   scale_shape_manual(values = modelShape) +
-  labs(title = "2.b) Share in electricity generation", subtitle = "%") + 
+  labs(title = "(b) Share in electricity generation", subtitle = "%") + 
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 1, by = 0.2), limits = c(0,1), expand = c(0, 0)) +
   coord_cartesian(clip = 'off') +
@@ -803,7 +797,7 @@ grid.draw(g[["Figure 2"]])
 
 ```
 
-Figure 2. Variable renewables generation and electricity share. Decadal average of the annual percentage change in the mean model results, expressed relative to the preceding decade, shown in blue.
+Figure 2. Variable renewables generation and electricity share. Decadal average of the annual percentage change in the median model results, expressed relative to the preceding decade, shown in blue.
 
 
 ---
@@ -817,13 +811,9 @@ Figure 2. Variable renewables generation and electricity share. Decadal average 
 
 plotDataRaw <- df %>%
   filter(variable == "Final Energy|Electricity Share woBunkers woNonEnergy",
-         period >=2005, period <= 2050,
-         model != "PRIMES" | period != 2005,
-         model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015) ),
-         model != "TIAM-ECN 1.2" | ! (period %in% c(2005,2010,2015) ),
-         model != "Euro-Calliope",
-         model %in% modelsFullSystem,
+         period >=2010, period <= 2050,
          scenario %in% c("WP1 NetZero"),
+         model %in% modelsFullSystem, 
          region == "EU27 & UK (*)") %>%
   rbind(
     histData %>%
@@ -840,16 +830,16 @@ plotData <- plotDataRaw %>%
     plotDataRaw %>%
       filter(model != "Historical") %>%
       group_by(scenario, region, variable, unit, period) %>%
-      summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+      summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
-      rename(value = mean_value) %>%
-      mutate(model = "mean") %>%
+      rename(value = median_value) %>%
+      mutate(model = "median") %>%
       select(all_of(names(plotDataRaw)))
   ) %>%
   mutate(model = factor(model, levels=rev(modelsOrder)))
 
 decade_change <- plotData %>% 
-  filter(model == "mean", period %% 10 == 0, period > 2020) %>%
+  filter(model == "median", period %% 10 == 0, period > 2020) %>%
   rbind(
     plotData %>%
       filter(model == "Historical", period %% 10 == 0, period <= 2020)
@@ -868,7 +858,8 @@ decade_change <- plotData %>%
     x = (period + prev_period) / 2,
     y = (value + prev_value) / 2,
     vAlign = case_when(
-      TRUE ~ -0.5
+      period %in% c(2010, 2020) ~ - 0.5,
+      TRUE ~ -1.5
     )
   )
 
@@ -877,17 +868,19 @@ decade_change <- plotData %>%
   annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2012, y = 0.5, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-  geom_line(size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-  geom_point(data = plotData %>% filter(!(model %in% c("Historical", "mean")), period > 2023), shape = def$model$shape, aes(colour = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-  geom_line(data=decade_change, aes(y = value/5), size=5, linetype="solid", color = "#90D5FF", alpha=0.3) +
-  geom_line(data=decade_change, aes(y = value/5), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
-  geom_point(data=decade_change, aes(y = value/5), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
-  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y/5, label = paste0(round(change_percentage, 1), "% yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
+  geom_line(data=plotData %>% filter(model != "median"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(!(model %in% c("Historical", "median")), period > 2023), shape = def$model$shape, aes(colour = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(model == "median"), shape = def$median$shape, aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
+  #geom_line(data=decade_change, aes(y = value), size=5, linetype="solid", color = "#90D5FF", alpha=0.3) +
+  #geom_line(data=decade_change, aes(y = value), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
+  #geom_point(data=decade_change, aes(y = value), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
+  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
   theme_paper() +
   scale_color_manual(values = setNames(color[levels(plotData$model)],levels(plotData$model))) +
   scale_alpha_manual(values = modelAlpha) +
   scale_linetype_manual(values = modelLinetype) +
-  labs(title = "3.a) Electricity share in final energy use", subtitle = "%") +
+  labs(title = "(a) Electricity share in final energy use", subtitle = "%") +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 1, by = 0.2), expand = c(0, 0)) +
   coord_cartesian(clip = 'off') +
@@ -906,11 +899,8 @@ decade_change <- plotData %>%
 
   plotDataRaw <- df %>%
     filter(variable %in% names(varTosector),
-           period >=2005, period <= 2050,
-           model != "PRIMES" | period != 2005,
-           model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015) ),
-           model != "TIAM-ECN 1.2" | ! (period %in% c(2005,2010,2015) ),
-           model != "Euro-Calliope",
+           period >=2010, period <= 2050,
+           model %in% modelsFullSystem, 
            scenario == "WP1 NetZero",
            region == "EU27 & UK (*)") %>%
     mutate(sector = factor(varTosector[as.character(variable)], levels = rev(names(vars))))
@@ -920,10 +910,10 @@ decade_change <- plotData %>%
       plotDataRaw %>%
         filter(model != "Historical") %>%
         group_by(scenario, region, variable, unit, period, sector) %>%
-        summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+        summarise(median_value = median(value, na.rm = TRUE)) %>%
         ungroup() %>%
-        rename(value = mean_value) %>%
-        mutate(model = "mean") %>%
+        rename(value = median_value) %>%
+        mutate(model = "median") %>%
         select(all_of(names(plotDataRaw)))
     ) %>%
   mutate(model = factor(model, levels=rev(modelsOrder)))
@@ -932,8 +922,10 @@ decade_change <- plotData %>%
     geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
     annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
     geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-    geom_line(size=1,aes(color=model,linetype=model, alpha = model)) + # models data
-    geom_point(data = plotData %>% filter(!(model %in% c("Historical", "mean")), period > 2023), shape = 21, aes(colour = model), fill = "white", size = 1, stroke = 1) +
+    geom_line(data=plotData %>% filter(model != "median"), size=1,aes(color=model,linetype=model, alpha = model)) + # models data
+    geom_point(data = plotData %>% filter(!(model %in% c("Historical", "median")), period > 2023), shape = 21, aes(colour = model), fill = "white", size = 1, stroke = 1) +
+    geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+    geom_point(data = plotData %>% filter(model == "median"), shape = def$median$shape, aes(colour = model, shape = model), fill = "white", size = def$median$smallPointSize, stroke = def$median$smallPointStroke) +
     theme_paper() +
     facet_wrap(~sector) +
     scale_color_manual(values = setNames(color[levels(plotData$model)],levels(plotData$model))) +
@@ -944,24 +936,17 @@ decade_change <- plotData %>%
     scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 1, by = 0.2), expand = c(0, 0)) +
     expand_limits(x = 2000) +
     coord_cartesian(clip = 'off') +
-  expand_limits(y = c(0,1))
+    expand_limits(y = c(0,1))
 
 ```
 
 
 ```{r fe_hydrogen_share, echo=FALSE, include=FALSE}
 
-df <- calc_addVariable(df, "`Final Energy|Hydrogen Share woBunkers woNonEnergy`" = "(`Final Energy|Hydrogen` - `Final Energy|Bunkers|Hydrogen` - `Final Energy|Non-Energy Use|Hydrogen`) / (`Final Energy` - `Final Energy|Bunkers` - `Final Energy|Non-Energy Use`)", units = "%", completeMissing = TRUE)
-
-
 
 plotDataRaw <- df %>%
   filter(variable == "Final Energy|Hydrogen Share woBunkers woNonEnergy",
-         period >=2005, period <= 2050,
-         model != "PRIMES" | period != 2005,
-         model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015) ),
-         model != "TIAM-ECN 1.2" | ! (period %in% c(2005,2010,2015) ),
-         model != "Euro-Calliope",
+         period >= 2010, period <= 2050,
          model %in% modelsFullSystem,
          scenario %in% c("WP1 NetZero"),
          region == "EU27 & UK (*)")
@@ -971,16 +956,16 @@ plotData <- plotDataRaw %>%
     plotDataRaw %>%
       filter(model != "Historical") %>%
       group_by(scenario, region, variable, unit, period) %>%
-      summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+      summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
-      rename(value = mean_value) %>%
-      mutate(model = "mean") %>%
+      rename(value = median_value) %>%
+      mutate(model = "median") %>%
       select(all_of(names(plotDataRaw)))
   ) %>%
   mutate(model = factor(model, levels=rev(modelsOrder)))
 
 decade_change <- plotData %>% 
-  filter(model == "mean", period %% 10 == 0, period > 2020) %>%
+  filter(model == "median", period %% 10 == 0, period > 2020) %>%
   rbind(
     plotData %>%
       filter(model == "Historical", period %% 10 == 0, period <= 2020)
@@ -999,7 +984,7 @@ decade_change <- plotData %>%
     x = (period + prev_period) / 2,
     y = (value + prev_value) / 2,
     vAlign = case_when(
-      TRUE ~ 1.5
+      TRUE ~ -1.5
     )
   )
 
@@ -1010,17 +995,19 @@ g[["Share of hydrogen in final energy use"]] <- ggplot(plotData,aes(x=period,y=v
   annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2012, y = 0.5, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-  geom_line(size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-  geom_point(data = plotData %>% filter(!(model %in% c("Historical", "mean")), period > 2023), shape = def$model$shape, aes(colour = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-  geom_line(data=decade_change, aes(y = value/5), size=5, linetype="solid", color = "#90D5FF", alpha=0.3) +
-  geom_line(data=decade_change, aes(y = value/5), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
-  geom_point(data=decade_change, aes(y = value/5), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
-  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y/5, label = paste0(round(change_percentage, 1), "% yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
+  geom_line(data=plotData %>% filter(model != "median"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(!(model %in% c("Historical", "median")), period > 2023), shape = def$model$shape, aes(colour = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
+  #geom_line(data=decade_change, aes(y = value), size=5, linetype="solid", color = "#90D5FF", alpha=0.3) +
+  #geom_line(data=decade_change, aes(y = value), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
+  #geom_point(data=decade_change, aes(y = value), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
+  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
   theme_paper() +
   scale_color_manual(values = setNames(color[levels(plotData$model)],levels(plotData$model))) +
   scale_alpha_manual(values = modelAlpha) +
   scale_linetype_manual(values = modelLinetype) +
-  labs(title = "3.b) Hydrogen share in final energy use", subtitle = "%") +
+  labs(title = "(b) Hydrogen share in final energy use", subtitle = "%") +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 1, by = 0.2), expand = c(0, 0)) +
   expand_limits(x = 2000) +
@@ -1040,11 +1027,8 @@ g[["Share of hydrogen in final energy use"]] <- ggplot(plotData,aes(x=period,y=v
 
   plotDataRaw <- df %>%
     filter(variable %in% names(varTosector),
-           period >=2005, period <= 2050,
-           model != "PRIMES" | period != 2005,
-           model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015) ),
-           model != "TIAM-ECN 1.2" | ! (period %in% c(2005,2010,2015) ),
-           model != "Euro-Calliope",
+           period >=2010, period <= 2050,
+           model %in% modelsFullSystem,
            scenario == "WP1 NetZero",
            region == "EU27 & UK (*)") %>%
     mutate(sector = factor(varTosector[as.character(variable)], levels = rev(names(vars))))
@@ -1054,10 +1038,10 @@ g[["Share of hydrogen in final energy use"]] <- ggplot(plotData,aes(x=period,y=v
       plotDataRaw %>%
         filter(model != "Historical") %>%
         group_by(scenario, region, variable, unit, period, sector) %>%
-        summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+        summarise(median_value = median(value, na.rm = TRUE)) %>%
         ungroup() %>%
-        rename(value = mean_value) %>%
-        mutate(model = "mean") %>%
+        rename(value = median_value) %>%
+        mutate(model = "median") %>%
         select(all_of(names(plotDataRaw)))
     ) %>%
     mutate(model = factor(model, levels=rev(modelsOrder)))
@@ -1066,8 +1050,10 @@ g[["Share of hydrogen in final energy use"]] <- ggplot(plotData,aes(x=period,y=v
     geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
     annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
     geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-    geom_line(size=1,aes(color=model,linetype=model, alpha = model)) + # models data
-    geom_point(data = plotData %>% filter(!(model %in% c("Historical", "mean")), period > 2023), shape = 21, aes(colour = model), fill = "white", size = 1, stroke = 1) +
+    geom_line(data=plotData %>% filter(model != "median"), size=1,aes(color=model,linetype=model, alpha = model)) + # models data
+    geom_point(data = plotData %>% filter(!(model %in% c("Historical", "median")), period > 2023), shape = 21, aes(colour = model), fill = "white", size = 1, stroke = 1) +
+    geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+    geom_point(data = plotData %>% filter(model == "median"), shape = def$median$shape, aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
     theme_paper() +
     facet_wrap(~sector) +
     scale_color_manual(values = setNames(color[levels(plotData$model)],levels(plotData$model))) +
@@ -1120,7 +1106,7 @@ grid.draw(g[["Figure 3"]])
 ```
 
 
-Figure 3. Electricity and hydrogen final energy shares. Decadal average of the annual percentage change in the mean model results, expressed relative to the preceding decade, shown in blue.
+Figure 3. Electricity and hydrogen final energy shares. Decadal average of the annual percentage change in the median model results, expressed relative to the preceding decade, shown in blue.
 
 
 ---
@@ -1150,10 +1136,7 @@ Figure 3. Electricity and hydrogen final energy shares. Decadal average of the a
   plotData <- df %>%
     filter(variable %in% names(varToCarrier),
            period %in% c(2020,2030,2040,2050),
-           model != "PRIMES" | period != 2005,
-           model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015) ),
-           model != "TIAM-ECN 1.2" | ! (period %in% c(2005,2010,2015) ),
-           model != "Euro-Calliope",
+           model %in% modelsFullSystem,
            scenario == "WP1 NetZero",
            region == "EU27 & UK (*)") %>%
     mutate(model = factor(model, levels=rev(modelsOrder)),
@@ -1182,7 +1165,7 @@ Figure 3. Electricity and hydrogen final energy shares. Decadal average of the a
     theme_paper() +
     scale_fill_manual(values = carrier_color) +
     theme(axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5)) +
-    labs(title = "4.a) Carbon-containing final energy", subtitle = "EJ/yr") +
+    labs(title = "(a) Carbon-containing final energy", subtitle = "EJ/yr") +
     theme(legend.key.width = unit(0.7, 'cm'))
     
 ```
@@ -1216,8 +1199,6 @@ Figure 3. Electricity and hydrogen final energy shares. Decadal average of the a
   plotData <- df %>%
     filter(variable %in% names(varToCarrier),
            period %in% c(2020,2030,2040,2050),
-           model != "PRIMES" | period != 2005,
-           model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015) ),
            model != "Euro-Calliope",
            model != "MEESA",
            model != "OSeMBE",
@@ -1250,7 +1231,7 @@ Figure 3. Electricity and hydrogen final energy shares. Decadal average of the a
     theme_paper() +
     scale_fill_manual(values = carrier_color) +
     theme(axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5)) +
-    labs(title = "4.b) Energy imports", subtitle = "EJ") +
+    labs(title = "(b) Energy imports", subtitle = "EJ") +
     theme(legend.key.width = unit(0.7, 'cm')) +
     force_panelsizes(cols = plotData %>% select(model, period) %>% group_by(period) %>% summarize(unique_count = n_distinct(model)) %>% pull(unique_count))
 	
@@ -1311,15 +1292,15 @@ Figure 4. Residual carbon and energy imports.
 ```{r Emissions per sector, echo=FALSE, include=FALSE}
 
   vars <- c(
+    "Demand - Bunkers"                              = "Emissions|CO2|Energy|Demand|Bunkers",
     "non-CO2"                                       = "Emissions|Kyoto Gases|non-CO2 synthetic",
     "other CO2"                                     = "Emissions|CO2|Other",
-    "Industrial Processes"                          = "Gross Emissions|CO2|Industrial Processes",
-    "Demand - Industry (gross)"                     = "Gross Emissions|CO2|Energy|Demand|Industry",
-    #"Demand - Other Sector"                         = "Emissions|CO2|Energy|Demand|Other",
     "Demand - AFOFI"                                = "Emissions|CO2|Energy|Demand|AFOFI",
     "Demand - Buildings"                            = "Emissions|CO2|Energy|Demand|Residential and Commercial",
-    "Demand - Bunkers"                              = "Emissions|CO2|Energy|Demand|Bunkers",
+    "Demand - Industry (gross)"                     = "Gross Emissions|CO2|Energy|Demand|Industry",
+    "Industrial Processes"                          = "Gross Emissions|CO2|Industrial Processes",
     "Demand - Transport"                            = "Emissions|CO2|Energy|Demand|Transportation",
+    #"Demand - Other Sector"                         = "Emissions|CO2|Energy|Demand|Other",
     "Energy Supply - Other (gross)"                 = "Gross Emissions|CO2|Energy|Supply|Other",
     "Energy Supply - H2 (gross)"                    = "Gross Emissions|CO2|Energy|Supply|H2",
     "Energy Supply - Solids (gross)"                = "Gross Emissions|CO2|Energy|Supply|Solids",
@@ -1328,7 +1309,7 @@ Figure 4. Residual carbon and energy imports.
     "Energy Supply - Heat (gross)"                  = "Gross Emissions|CO2|Energy|Supply|Heat",
     "Energy Supply - Electricity (gross)"           = "Gross Emissions|CO2|Energy|Supply|Electricity",
     "AFOLU"                                         = "Emissions|CO2|AFOLU synthetic",
-    "Geological Carbon Removal"                     = "Carbon Removal|Geological Storage"#,
+    "Geological Carbon Removal"                     = "Carbon Removal|Geological Storage|Integrated"#,
     # "Other Removal"                                 = "Emissions|CO2|Other Removal"
     )
 
@@ -1342,11 +1323,11 @@ Figure 4. Residual carbon and energy imports.
   varToSector <- setNames(c(names(vars),rev(names(totalVars))), c(vars,rev(totalVars)))
 
   histVars <- c(
-    "non-CO2"                             = c("Emi|Kyoto Gases|non-CO2 calc"),
-    "Demand - Industry (gross)"           = c("Emi|CO2|Energy|Demand|Industry"),
-    "Demand - Buildings"                  = c("Emi|CO2|Energy|Demand|Buildings"),
-    "Industrial Processes"                = c("Emi|CO2|Industrial Processes"),
     "Demand - Bunkers"                    = c("Emi|CO2|Energy|Demand|Transport|International Bunkers"),
+    "non-CO2"                             = c("Emi|Kyoto Gases|non-CO2 calc"),
+    "Demand - Buildings"                  = c("Emi|CO2|Energy|Demand|Buildings"),
+    "Demand - Industry (gross)"           = c("Emi|CO2|Energy|Demand|Industry"),
+    "Industrial Processes"                = c("Emi|CO2|Industrial Processes"),
     "Demand - Transport"                  = c("Emi|CO2|Energy|Demand|Transport"),
     "Energy Supply - Other (gross)"      = c("Emi|CO2|Calc Other"),
     "Energy Supply - Solids (gross)"      = c("Emi|CO2|Energy|Supply|Solids w/ couple prod"),
@@ -1363,15 +1344,15 @@ Figure 4. Residual carbon and energy imports.
   histVarToSector <- setNames(c(names(histVars),names(totalHistVars)),c(histVars,totalHistVars))
 
   sector_color <- c(  
+    "Demand - Bunkers"                              = "#283280",
     "non-CO2"                                       = "purple",
     "other CO2"                                     = "black",
-    "Industrial Processes"                          = "#735550",
-    "Demand - Industry (gross)"                     = "#ba6759",
-    #"Demand - Other Sector"                         = "#5ed5f0",
     "Demand - AFOFI"                                = "#6df25e",
     "Demand - Buildings"                            = "#eba357",
-    "Demand - Bunkers"                              = "#283280",
+    "Demand - Industry (gross)"                     = "#ba6759",
+    "Industrial Processes"                          = "#735550",
     "Demand - Transport"                            = "#a7c8db",
+    #"Demand - Other Sector"                         = "#5ed5f0",
     "Energy Supply - Other (gross)"                 = "#ff33ff",
     "Energy Supply - H2 (gross)"                    = "#35effc",
     "Energy Supply - Solids (gross)"                = "#0c0c0c",
@@ -1382,7 +1363,7 @@ Figure 4. Residual carbon and energy imports.
     "AFOLU"                                         = "darkgreen",
     "Geological Carbon Removal"                     = "red"
     )
-  
+
   totalShape <- c(
     "Total Kyoto Gases"                             = 17,
     "Total CO2"                                     = 3,
@@ -1391,16 +1372,16 @@ Figure 4. Residual carbon and energy imports.
     )
   
   plotData <- df %>%
-    filter(variable %in% c(vars, totalVars, "Carbon Removal|Geological Storage|BioWITCH"),
+    filter(variable %in% c(vars, totalVars),
            period %in% c(2020,2030,2040,2050),
-           !(model %in% c("Euro-Calliope", "LIMES", "MEESA", "OSeMBE")),
+           model %in% modelsFullSystem,
            scenario == "WP1 NetZero",
            region == "EU27 & UK (*)") %>%
-    mutate(value = ifelse(as.character(variable) == "Carbon Removal|Geological Storage|BioWITCH", -value, value),
-           variable = ifelse(as.character(variable) == "Carbon Removal|Geological Storage|BioWITCH", "Carbon Removal|Geological Storage", as.character(variable))) %>%
-    group_by(model, scenario, region, variable, unit, period) %>%
-    summarise(value = sum(value)) %>%
-    ungroup() %>%
+    #mutate(value = ifelse(as.character(variable) == "Carbon Removal|Geological Storage|BioWITCH", -value, value),
+    #       variable = ifelse(as.character(variable) == "Carbon Removal|Geological Storage|BioWITCH", "Carbon Removal|Geological Storage", as.character(variable))) %>%
+    #group_by(model, scenario, region, variable, unit, period) %>%
+    #summarise(value = sum(value)) %>%
+    #ungroup() %>%
     mutate(sector = varToSector[as.character(variable)]) %>%
     rbind(
       histData  %>%
@@ -1418,15 +1399,15 @@ Figure 4. Residual carbon and energy imports.
                period %in% c(2018:2022),
                model == "UNFCCC") %>%
         group_by(model, scenario, region, variable, unit) %>%
-        summarize(value = mean(value, na.rm = TRUE)) %>%
+        summarize(value = median(value, na.rm = TRUE)) %>%
         ungroup() %>%
         mutate(sector = histVarToSector[as.character(variable)],
-               model = "Historical (5yr mean)",
+               model = "Historical (5yr median)",
                period = "2020") %>%
         select(all_of(names(df)), sector)
       ) %>%
-    mutate(model = factor(model, levels=rev(c(modelsOrder[modelsOrder != "Historical"], "Historical (5yr mean)", "Historical"))),
-           value = ifelse(variable == "Carbon Removal|Geological Storage", -value, value),
+    mutate(model = factor(model, levels=rev(c(modelsOrder[modelsOrder != "Historical"], "Historical (5yr median)", "Historical"))),
+           #value = ifelse(variable == "Carbon Removal|Geological Storage", -value, value),
            sector = factor(sector, levels = c(names(vars), names(totalVars))))
     
 
@@ -1440,7 +1421,7 @@ Figure 4. Residual carbon and energy imports.
     scale_fill_manual(values = sector_color, breaks = rev(c("AFOLU", "Geological Carbon Removal", rev(names(sector_color)[!(names(sector_color) %in% c("AFOLU","Geological Carbon Removal"))])))) +
     scale_shape_manual(values = totalShape, breaks = ) +
     theme(axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5)) +
-    labs(title = "5) Emissions per sector", subtitle = expression(paste("Mt ", CO[2]," /yr"))) +
+    labs(title = "Emissions per sector", subtitle = expression(paste("Mt ", CO[2]," /yr"))) +
     theme(legend.key.width = unit(0.7, 'cm'),
           legend.position = "right",
           legend.box = "vertical") + 
@@ -1475,7 +1456,7 @@ Figure 5. Emissions per sector.
 
 plotDataRaw <- df %>%
   filter(variable %in% c("Carbon Capture"),
-         period >=2005, period <= 2050,
+         period >= 2010, period <= 2050,
          scenario %in% c("WP1 NetZero"),
          model %in% modelsFullSystem,
          region == "EU27 & UK (*)")
@@ -1485,16 +1466,16 @@ plotData <- plotDataRaw %>%
     plotDataRaw %>%
       filter(model != "Historical") %>%
       group_by(scenario, region, variable, unit, period) %>%
-      summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+      summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
-      rename(value = mean_value) %>%
-      mutate(model = "mean") %>%
+      rename(value = median_value) %>%
+      mutate(model = "median") %>%
       select(all_of(names(plotDataRaw)))
   ) %>%
   mutate(model = factor(model, levels=rev(modelsOrder)))
 
 decade_change <- plotData %>% 
-  filter(model == "mean", period %% 10 == 0, period > 2020) %>%
+  filter(model == "median", period %% 10 == 0, period > 2020) %>%
   select(period, variable, value) %>%
   arrange(variable,period) %>%
   group_by(variable) %>%
@@ -1509,8 +1490,8 @@ decade_change <- plotData %>%
     x = (period + prev_period) / 2,
     y = (value + prev_value) / 2,
     vAlign = case_when(
-      period == 2050 ~ 1.4,
-      TRUE ~ 1.7
+      #period == 2050 ~ 1.4,
+      TRUE ~ -1.5
     )
   )
 
@@ -1519,17 +1500,19 @@ g[["Carbon Capture"]] <- ggplot(plotData,aes(x=period,y=value)) +
   annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2014.5, y = 500, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-  geom_line(size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-  geom_point(data = plotData %>% filter(!(model %in% c("Historical", "mean")), period > 2023), shape = def$model$shape, aes(colour = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-  geom_line(data=decade_change, aes(y = value/5), size=5, linetype="solid", color = "#90D5FF", alpha=0.3) +
-  geom_line(data=decade_change, aes(y = value/5), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
-  geom_point(data=decade_change, aes(y = value/5), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
-  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y/5, label = paste0(round(change_percentage, 1), "% yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
+  geom_line(data=plotData %>% filter(model != "median"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(!(model %in% c("Historical", "median")), period > 2023), shape = def$model$shape, aes(colour = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(model == "median"), shape = def$median$shape, aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
+  #geom_line(data=decade_change, aes(y = value), size=5, linetype="solid", color = "#90D5FF", alpha=0.3) +
+  #geom_line(data=decade_change, aes(y = value), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
+  #geom_point(data=decade_change, aes(y = value), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
+  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
   theme_paper() +
   scale_color_manual(values = setNames(color[levels(plotData$model)],levels(plotData$model))) +
   scale_alpha_manual(values = modelAlpha) +
   scale_linetype_manual(values = modelLinetype) +
-  labs(title = "6.a) Carbon Capture", subtitle = expression(paste("Mt ", CO[2]," /yr"))) + 
+  labs(title = "(a) Carbon Capture", subtitle = expression(paste("Mt ", CO[2]," /yr"))) + 
   scale_x_continuous(expand = c(0, 0)) +
   coord_cartesian(clip = 'off') +
   theme(strip.text = element_blank()) +
@@ -1555,7 +1538,7 @@ g[["Carbon Capture"]] <- ggplot(plotData,aes(x=period,y=value)) +
   plotData <- df %>%
     filter(variable %in% names(varToCarrier),
            period %in% c(2030,2040,2050),
-           model %in% c("IMAGE","LIMES", "MEESA","OSeMBE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH"),
+           model %in% modelsElecall,
            scenario == "WP1 NetZero",
            region == "EU27 & UK (*)") %>%
     mutate(model = factor(model, levels=rev(modelsOrder)),
@@ -1579,7 +1562,7 @@ g[["Carbon Capture"]] <- ggplot(plotData,aes(x=period,y=value)) +
     theme_paper() +
     scale_fill_manual(values = carrier_color) +
     theme(axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5)) +
-    labs(title = "6.b) Carbon Capture by origin", subtitle = expression(paste("Mt ", CO[2]," /yr"))) +
+    labs(title = "(b) Carbon Capture by origin", subtitle = expression(paste("Mt ", CO[2]," /yr"))) +
     theme(legend.key.width = unit(0.7, 'cm')) +
     coord_cartesian(clip = 'off')
 
@@ -1608,7 +1591,7 @@ grid.draw(g[["Figure 6"]])
 ```
 
 
-Figure 6. Carbon capture. Decadal average of the annual percentage change in the mean model results, expressed relative to the preceding decade, shown in blue.
+Figure 6. Carbon capture. Decadal average of the annual percentage change in the median model results, expressed relative to the preceding decade, shown in blue.
 
 ---
 
@@ -1621,10 +1604,7 @@ Figure 6. Carbon capture. Decadal average of the annual percentage change in the
 plotDataRaw <- df %>%
     filter(variable == "Price|Carbon",
            period >=2015, period <= 2050,
-           model != "PRIMES" | period != 2005,
-           model != "TIAM-ECN" | ! (period %in% c(2005,2010,2015) ),
-           model != "TIAM-ECN 1.2" | ! (period %in% c(2005,2010,2015) ),
-           model %in% c("IMAGE","LIMES", "MEESA","OSeMBE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","TIAM-ECN 1.2","WITCH"),,
+           model %in% modelsElecall,
            scenario %in% c("WP1 NetZero"),
            region == "EU27 & UK (*)")
 
@@ -1633,16 +1613,16 @@ plotData <- plotDataRaw %>%
     plotDataRaw %>%
       filter(model != "Historical") %>%
       group_by(scenario, region, variable, unit, period) %>%
-      summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+      summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
-      rename(value = mean_value) %>%
-      mutate(model = "mean") %>%
+      rename(value = median_value) %>%
+      mutate(model = "median") %>%
       select(all_of(names(plotDataRaw)))
   ) %>%
   mutate(model = factor(model, levels=rev(modelsOrder)))
 
 decade_change <- plotData %>% 
-  filter(model == "mean", period %% 10 == 0, period > 2020) %>%
+  filter(model == "median", period %% 10 == 0, period > 2020) %>%
   select(period, variable, value) %>%
   arrange(variable,period) %>%
   group_by(variable) %>%
@@ -1657,27 +1637,29 @@ decade_change <- plotData %>%
     x = (period + prev_period) / 2,
     y = (value + prev_value) / 2,
     vAlign = case_when(
-      TRUE ~ -0.5
+      TRUE ~ -1.5
     )
   )
-
 
 g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
   annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2019.5, y = 600, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-  geom_line(size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-  geom_point(data = plotData %>% filter(!(model %in% c("Historical", "mean")), period > 2023), shape = def$model$shape, aes(colour = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-  geom_line(data=decade_change, aes(y = value/5), size=def$decadeChange$wideLineSize, linetype="solid", color = "#90D5FF", alpha=def$decadeChange$wideAlpha) +
-  geom_line(data=decade_change, aes(y = value/5), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
-  geom_point(data=decade_change, aes(y = value/5), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
-  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y/5, label = paste0(round(change_percentage, 1), "% yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
+  geom_line(data=plotData %>% filter(model != "median"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(model != "median", period > 2023), shape = def$model$shape, aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(model == "median"), shape = def$median$shape, aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
+  #geom_line(data=decade_change, aes(y = value), size=def$decadeChange$wideLineSize, linetype="solid", color = "#90D5FF", alpha=def$decadeChange$wideAlpha) +
+  #geom_line(data=decade_change, aes(y = value), size=def$decadeChange$lineSize, linetype="solid", color = "#57B9FF") +
+  #geom_point(data=decade_change, aes(y = value), shape = 21, fill = "white", size = def$decadeChange$pointSize, stroke = def$decadeChange$pointStroke, color = "black") +
+  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
   theme_paper() +
   scale_color_manual(values = setNames(color[levels(plotData$model)],levels(plotData$model))) +
   scale_alpha_manual(values = modelAlpha) +
   scale_linetype_manual(values = modelLinetype) +
-  labs(title = expression(paste("7) Carbon Price")), subtitle = expression(paste("€/t", CO[2]))) + 
+  scale_shape_manual(values = modelShape) +
+  labs(title = expression(paste("Carbon Price")), subtitle = expression(paste("€/t", CO[2]))) + 
   scale_x_continuous(expand = c(0, 0)) +
   coord_cartesian(clip = 'off') + 
   theme(legend.position = "right",
@@ -1700,7 +1682,7 @@ g[["Carbon Price"]]
 
 ```
 
-Figure 7. Carbon price. Decadal average of the annual percentage change in the mean model results, expressed relative to the preceding decade, shown in blue.
+Figure 7. Carbon price. Decadal average of the annual percentage change in the median model results, expressed relative to the preceding decade, shown in blue.
 
 
 
