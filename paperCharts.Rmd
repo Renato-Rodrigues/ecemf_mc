@@ -38,7 +38,7 @@ output:
 ```{r loading_packages, echo=FALSE, include = FALSE}
 
   #Loading required packages
-  packagesList <- c("reticulate", "tidyr", "dplyr", "quitte", "openxlsx", "piamInterfaces", "ggplot2", "grid", "gridExtra", "ggh4x")
+  packagesList <- c("reticulate", "tidyr", "dplyr", "quitte", "openxlsx", "piamInterfaces", "ggplot2", "grid", "gridExtra", "ggh4x", "ggrepel")
   packages <- suppressWarnings(suppressMessages(lapply(packagesList, function(x){ if(!require(x, character.only = T, quietly = T)){ install.packages(x); return(paste0("installed missing package: ", x)) } else paste0("required package is installed: ", x) } )))
 
   #use_python("C:/Users/robertp/AppData/Local/Programs/Python/Python313")
@@ -1030,83 +1030,76 @@ Figure 4. Residual carbon and energy imports.
 ```{r Emissions per sector, echo=FALSE, include=FALSE}
 
   vars <- c(
-    "Demand - Bunkers"                              = "Emissions|CO2|Energy|Demand|Bunkers",
-    "non-CO2"                                       = "Emissions|Kyoto Gases|non-CO2 synthetic",
-    "other CO2"                                     = "Emissions|CO2|Other",
-    "Demand - AFOFI"                                = "Emissions|CO2|Energy|Demand|AFOFI",
-    "Demand - Buildings"                            = "Emissions|CO2|Energy|Demand|Residential and Commercial",
-    "Demand - Industry (gross)"                     = "Gross Emissions|CO2|Energy|Demand|Industry",
-    "Industrial Processes"                          = "Gross Emissions|CO2|Industrial Processes",
-    "Demand - Transport"                            = "Emissions|CO2|Energy|Demand|Transportation",
-    #"Demand - Other Sector"                         = "Emissions|CO2|Energy|Demand|Other",
-    "Energy Supply - Other (gross)"                 = "Gross Emissions|CO2|Energy|Supply|Other",
-    "Energy Supply - H2 (gross)"                    = "Gross Emissions|CO2|Energy|Supply|H2",
-    "Energy Supply - Solids (gross)"                = "Gross Emissions|CO2|Energy|Supply|Solids",
-    "Energy Supply - Liquids (gross)"               = "Gross Emissions|CO2|Energy|Supply|Liquids",
-    "Energy Supply - Gases (gross)"                 = "Gross Emissions|CO2|Energy|Supply|Gases",
-    "Energy Supply - Heat (gross)"                  = "Gross Emissions|CO2|Energy|Supply|Heat",
-    "Energy Supply - Electricity (gross)"           = "Gross Emissions|CO2|Energy|Supply|Electricity",
-    "LULUCF"                                         = "Emissions|CO2|AFOLU synthetic",
-    "Geological Carbon Removal"                     = "Carbon Removal|Geological Storage|Integrated"#,
-    # "Other Removal"                                 = "Emissions|CO2|Other Removal"
+    "Demand - Bunkers"            = "Emissions|CO2|Energy|Demand|Bunkers",
+    "non-CO2"                     = "Emissions|Kyoto Gases|non-CO2 synthetic",
+    "other CO2"                   = "Emissions|CO2|Other",
+    "Demand - AFOFI"              = "Emissions|CO2|Energy|Demand|AFOFI",
+    "Demand - Buildings"          = "Emissions|CO2|Energy|Demand|Residential and Commercial",
+    "Demand - Industry"           = "Gross Emissions|CO2|Energy|Demand|Industry",
+    "Industrial Processes"        = "Gross Emissions|CO2|Industrial Processes",
+    "Demand - Transport"          = "Emissions|CO2|Energy|Demand|Transportation",
+    #"Demand - Other Sector"      = "Emissions|CO2|Energy|Demand|Other",
+    "Energy Supply - Other"       = "Gross Emissions|CO2|Energy|Supply|Other",
+    "Energy Supply - H2"          = "Gross Emissions|CO2|Energy|Supply|H2",
+    "Energy Supply - Solids"      = "Gross Emissions|CO2|Energy|Supply|Solids",
+    "Energy Supply - Liquids"     = "Gross Emissions|CO2|Energy|Supply|Liquids",
+    "Energy Supply - Gases"       = "Gross Emissions|CO2|Energy|Supply|Gases",
+    "Energy Supply - Heat"        = "Gross Emissions|CO2|Energy|Supply|Heat",
+    "Energy Supply - Electricity" = "Gross Emissions|CO2|Energy|Supply|Electricity",
+    "LULUCF"                      = "Emissions|CO2|AFOLU synthetic",
+    "Geological Carbon Removal"   = "Carbon Removal|Geological Storage|Integrated"#,
+    # "Other Removal"             = "Emissions|CO2|Other Removal"
     )
 
   totalVars <- c(
-    "Total Kyoto Gases"                             = "Emi|Kyoto Gases|synthetic"#,
-    #"Total CO2"                                     = "Emissions|CO2",
-    #"Total Energy and Industrial Processes (gross)" = "Gross Emissions|CO2|Energy and Industrial Processes"
-    #"Total Energy and Industrial Processes"         = "Emissions|CO2|Energy and Industrial Processes",
+    "Total Kyoto Gases"                             = "Emi|Kyoto Gases|synthetic"
     )
   
   varToSector <- setNames(c(names(vars),rev(names(totalVars))), c(vars,rev(totalVars)))
 
   histVars <- c(
-    "Demand - Bunkers"                    = c("Emi|CO2|Energy|Demand|Transport|International Bunkers"),
-    "non-CO2"                             = c("Emi|Kyoto Gases|non-CO2 calc"),
-    "Demand - Buildings"                  = c("Emi|CO2|Energy|Demand|Buildings"),
-    "Demand - Industry (gross)"           = c("Emi|CO2|Energy|Demand|Industry"),
-    "Industrial Processes"                = c("Emi|CO2|Industrial Processes"),
-    "Demand - Transport"                  = c("Emi|CO2|Energy|Demand|Transport"),
-    "Energy Supply - Other (gross)"      = c("Emi|CO2|Calc Other"),
-    "Energy Supply - Solids (gross)"      = c("Emi|CO2|Energy|Supply|Solids w/ couple prod"),
-    "Energy Supply - Liquids (gross)"     = c("Emi|CO2|Energy|Supply|Liquids w/ couple prod"),
-    "Energy Supply - Electricity (gross)" = c("Emi|CO2|Energy|Supply|Electricity and Heat"),
-    "LULUCF"                               = c("Emi|GHG|Land-Use Change")
+    "Demand - Bunkers"            = c("Emi|CO2|Energy|Demand|Transport|International Bunkers"),
+    "non-CO2"                     = c("Emi|Kyoto Gases|non-CO2 calc"),
+    "Demand - Buildings"          = c("Emi|CO2|Energy|Demand|Buildings"),
+    "Demand - Industry"           = c("Emi|CO2|Energy|Demand|Industry"),
+    "Industrial Processes"        = c("Emi|CO2|Industrial Processes"),
+    "Demand - Transport"          = c("Emi|CO2|Energy|Demand|Transport"),
+    "Energy Supply - Other"       = c("Emi|CO2|Calc Other"),
+    "Energy Supply - Solids"      = c("Emi|CO2|Energy|Supply|Solids w/ couple prod"),
+    "Energy Supply - Liquids"     = c("Emi|CO2|Energy|Supply|Liquids w/ couple prod"),
+    "Energy Supply - Electricity" = c("Emi|CO2|Energy|Supply|Electricity and Heat"),
+    "LULUCF"                      = c("Emi|GHG|Land-Use Change")
     )
   
   totalHistVars <- c(
-    #"Total Energy and Industrial Processes (gross)" = "Emi|CO2|w/ Bunkers|Energy and Industrial Processes",
     "Total Kyoto Gases"                             = "Emi|GHG|w/ Bunkers"
     )
   
   histVarToSector <- setNames(c(names(histVars),names(totalHistVars)),c(histVars,totalHistVars))
 
   sector_color <- c(  
-    "Demand - Bunkers"                              = "#283280",
-    "non-CO2"                                       = "purple",
-    "other CO2"                                     = "black",
-    "Demand - AFOFI"                                = "#6df25e",
-    "Demand - Buildings"                            = "#eba357",
-    "Demand - Industry (gross)"                     = "#ba6759",
-    "Industrial Processes"                          = "#735550",
-    "Demand - Transport"                            = "#a7c8db",
-    #"Demand - Other Sector"                         = "#5ed5f0",
-    "Energy Supply - Other (gross)"                 = "#ff33ff",
-    "Energy Supply - H2 (gross)"                    = "#35effc",
-    "Energy Supply - Solids (gross)"                = "#0c0c0c",
-    "Energy Supply - Liquids (gross)"               = "#813499",
-    "Energy Supply - Gases (gross)"                 = "#337fff",
-    "Energy Supply - Heat (gross)"                  = "#b30000",
-    "Energy Supply - Electricity (gross)"           = "#fcec35",
-    "LULUCF"                                         = "darkgreen",
-    "Geological Carbon Removal"                     = "red"
+    "Demand - Bunkers"            = "#283280",
+    "non-CO2"                     = "purple",
+    "other CO2"                   = "black",
+    "Demand - AFOFI"              = "#6df25e",
+    "Demand - Buildings"          = "#eba357",
+    "Demand - Industry"           = "#ba6759",
+    "Industrial Processes"        = "#735550",
+    "Demand - Transport"          = "#a7c8db",
+    #"Demand - Other Sector"      = "#5ed5f0",
+    "Energy Supply - Other"       = "#ff33ff",
+    "Energy Supply - H2"          = "#35effc",
+    "Energy Supply - Solids"      = "#0c0c0c",
+    "Energy Supply - Liquids"     = "#813499",
+    "Energy Supply - Gases"       = "#337fff",
+    "Energy Supply - Heat"        = "#b30000",
+    "Energy Supply - Electricity" = "#fcec35",
+    "LULUCF"                      = "darkgreen",
+    "Geological Carbon Removal"   = "red"
     )
 
   totalShape <- c(
-    "Total Kyoto Gases"                             = 17#,
-    #"Total CO2"                                     = 3,
-    #"Total Energy and Industrial Processes (gross)" = 18
-    #"Total Energy and Industrial Processes"         = ,
+    "Total Kyoto Gases"                             = 17
     )
   
   plotData <- df %>%
@@ -1140,12 +1133,10 @@ Figure 4. Residual carbon and energy imports.
         select(all_of(names(df)), sector)
       ) %>%
     mutate(model = factor(model, levels=rev(c(modelsOrder[modelsOrder != "Historical"], "Historical (5yr median)", "Historical"))),
-           #value = ifelse(variable == "Carbon Removal|Geological Storage", -value, value),
            sector = factor(sector, levels = c(names(vars), names(totalVars))))
     
 
 	g[["Emissions per sector"]] <- ggplot(plotData %>% filter(variable %in% c(vars, histVars))) +
-    #geom_rect(data = data.frame(period = 2020), xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = "#eeeeee", alpha = 0.5) +
     geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
 	  geom_bar(stat='identity', alpha = 0.8,aes(x=model,y=value,fill=sector)) +
     geom_point(data = plotData %>% filter(variable %in% c(totalVars, totalHistVars)), aes(x=model, y = value, shape = sector), colour = "black", size = 3) + 
@@ -1199,7 +1190,6 @@ decade_change <- plotData %>%
     prev_period = lag(period),
     prev_value = lag(value)
   ) %>%
-  #filter(!is.na(prev_period)) %>%
   mutate(
     x = (period + prev_period) / 2,
     y = (value + prev_value) / 2,
@@ -1303,7 +1293,6 @@ decade_change <- plotData %>%
     prev_period = lag(period),
     prev_value = lag(value)
   ) %>%
-  #filter(!is.na(prev_period)) %>%
   mutate(
     x = (period + prev_period) / 2,
     y = (value + prev_value) / 2,
@@ -1321,37 +1310,88 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_point(data = plotData %>% filter(model != "median", period > 2023), shape = def$model$shape, aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
   geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(model == "median"), shape = def$median$shape, aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
-  #geom_line(data=plotData %>% filter(model == "Historical"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + 
   theme_paper() +
-  scale_color_manual(name = "legend", values = setNames(color[levels(plotData$model)],levels(plotData$model)), guide = guide_legend(ncol = 1)) +
+  scale_color_manual(name = "legend", values = setNames(color[levels(plotData$model)],levels(plotData$model)), guide = guide_legend(nrow = 2)) +
   scale_alpha_manual(values = modelAlpha) +
   scale_linetype_manual(values = modelLinetype) +
   scale_shape_manual(name = "legend", values = modelShape, guide = guide_legend(ncol = 1)) +
-  labs(title = expression(paste("Carbon Price")), subtitle = expression(paste("€/t", CO[2]))) + 
+  labs(title = expression(paste("(a) Carbon Price")), subtitle = expression(paste("€/t", CO[2]))) + 
   scale_x_continuous(expand = c(0, 0)) +
   coord_cartesian(clip = 'off') + 
-  theme(legend.position = "right",
+  theme(legend.position = "bottom",
         legend.key.height = unit(1, 'cm'),
-        plot.margin = margin(r = 100, l = 100),
-        legend.margin = margin(l = 50),
+        plot.margin = margin(r = 50, l = 20),
+        #legend.margin = margin(l = 50),
         strip.text = element_blank()
   ) +
   guides(alpha = "none", linetype = "none")
 
-ggsave(paste0(outFolder, "/png/Figure 6. Carbon Price.png"), g[["Carbon Price"]], device="png", width = 12, height = 5, dpi=300, units = "in")
-ggsave(paste0(outFolder, "/svg/Figure 6. Carbon Price.svg"), g[["Carbon Price"]], device="svg", width = 12, height = 5, dpi=100, units = "in")
+```
+
+
+```{r Share of consumption, echo=FALSE, include=FALSE}
+
+  plotData <- data.frame(
+      model = c("IMAGE", "PROMETHEUS", "REMIND", "TIAM-ECN", "WITCH"),
+      value = c(0.003, 0.005, 0.010, 0.006, 0.021)  # converted to decimals
+    ) %>% 
+    mutate(min = min(value),
+        max = max(value))
+
+  g[["Share of consumption"]] <- ggplot(plotData, aes(x = 0, y = value)) +
+    geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
+    geom_errorbar(aes(ymin=min, ymax=max), width=0.3, colour="black", alpha=0.9, linewidth=1) +
+    geom_boxplot(outlier.shape = NA, width=0.3) +
+    geom_point(data = plotData, shape = def$model$shape, aes(colour = model), fill = "white", size = 2, stroke = 2) +
+    geom_text_repel(aes(label = model, colour = model),
+      nudge_x = c(0.3,0.3,0.3,0.3,0.3),
+      nudge_y = c(-0.001,-0.001,0.001,0.002,0.001),
+      direction = "y",
+      hjust = 0,
+      segment.size = 0.6,
+      segment.color = "grey30",
+      size = 3
+    ) +
+    theme_paper() +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0, 0.025, by = 0.005), limits = c(0,0.025)) +
+    scale_x_continuous(limits = c(-0.6, 0.6)) + #, expand = expansion(mult = 0.2)) +
+    theme(
+      legend.position = "none",
+      axis.text.x = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      plot.margin = margin(b = 100, r = 20),
+    ) +
+    labs(title = expression(paste("(b) Mitigation costs")), subtitle = "as share of consumption")
+
+  
+```
+
+
+```{r figure 6, echo=FALSE, include=FALSE}
+
+g[["Figure 6"]] <- gridExtra::arrangeGrob(
+  g$`Carbon Price`,
+  g$`Share of consumption`,
+  layout_matrix = rbind(c(1,1,1,2))
+   )
+
+ggsave(paste0(outFolder, "/png/Figure 6 Carbon price and Share of consumption.png"), g[["Figure 6"]], device="png", width = 12, height = 6, dpi=300, units = "in")
+ggsave(paste0(outFolder, "/svg/Figure 6 Carbon price and Share of consumption.svg"), g[["Figure 6"]], device="svg", width = 12, height = 6, dpi=100, units = "in")
 
 ```
 
 
-```{r, echo=FALSE, fig.width=12, fig.height=5, warning=FALSE}
+```{r, echo=FALSE, fig.width=12, fig.height=6}
 
-g[["Carbon Price"]]
+grid.newpage()
+grid.draw(g[["Figure 6"]])
 
 ```
 
-Figure 6. Carbon price. 
-<!-- Decadal average of the annual percentage change in the median model results, expressed relative to the preceding decade, shown in blue. -->
+Figure 6. Carbon price and Share of consumption. 
+
 
 
 

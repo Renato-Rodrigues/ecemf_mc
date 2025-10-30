@@ -221,9 +221,10 @@ df <- rbind(df_woModel, df_onlyModel)
 # TIAM-ECN: 
 df_woModel   <- filter(df, model != "TIAM-ECN")
 df_onlyModel <- filter(df, model == "TIAM-ECN")
+
+df_onlyModel <- df_onlyModel %>% mutate(value = if_else(model == "TIAM-ECN" & scenario == "WP1 NetZero" & region == "EU27 & UK (*)" & variable == "Emissions|CO2|Energy|Supply|Electricity" & period == 2030, 72, value))
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Secondary Energy|Gases|Electricity`" = "`Secondary Energy|Gases|Hydrogen`", units = "EJ/yr") # TIAM-ECN reports syngas under "hydrogen", this script uses "electricity" 
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Secondary Energy|Liquids|Electricity`" = "`Secondary Energy|Liquids|Hydrogen`", units = "EJ/yr") # TIAM-ECN reports SE synliq under "hydrogen", this script uses "electricity" 
-
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Emissions|CO2|Industrial Processes`" = "`Emissions|CO2|Energy and Industrial Processes` - `Emissions|CO2|Energy` ", units = "Mt CO2/yr")
 # add missing ne values to approximate missing gross values
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Demand|Industry`" = "`Emissions|CO2|Energy|Demand|Industry` + 1/3 * `Carbon Capture|Storage|Biomass`", units = "Mt CO2/yr")
