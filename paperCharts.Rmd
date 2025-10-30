@@ -517,15 +517,17 @@ g[["Figure 1.b"]] <- ggplot(plotData,aes(x=period,y=value)) +
 g[["Figure 1"]] <- gridExtra::arrangeGrob(
   g$`Emi|Kyoto Gases|synthetic` + 
     theme(legend.position="none") + 
-    labs(title = "(a) GHG Emissions", subtitle = expression(paste("Mt ", CO[2]," eq/yr"))) +
+    labs(title = "(a) Net GHG emissions", subtitle = expression(paste("Mt ", CO[2]," eq/yr"))) +
     theme(plot.margin = margin(b = 10, r=20)),
   g$`Emissions|CO2|Energy and Industrial Processes` +
     theme(legend.position="none") +
-    labs(title = expression(paste("(b) ", CO[2], " Emissions - energy and industrial processes")), subtitle = expression(paste("Mt ", CO[2]," eq/yr"))) +
-    theme(plot.margin = margin(b = 10, r=20)),
+    labs(title = expression(paste("(b) Net ", CO[2], " emissions - energy and industrial processes")), subtitle = expression(paste("Mt ", CO[2]," eq/yr"))) +
+    theme(plot.margin = margin(b = 10, r=20),
+          plot.title = element_text(hjust = 0.2)) +
+      coord_cartesian(clip = "off"),
   g[["Figure 1.b"]] + 
     theme(plot.margin = margin(r = 60, t = 10), legend.margin = margin(l = 80)) + 
-    labs(title = expression(paste("(c) Electricity Supply ", CO[2]," Emissions")), subtitle = expression(paste("Mt ", CO[2]," eq/yr"))),
+    labs(title = expression(paste("(c) Net ", CO[2]," emissions from electricity generation")), subtitle = expression(paste("Mt ", CO[2]," eq/yr"))),
   layout_matrix = rbind(c(1, 2),
                         c(3, 3))
    )
@@ -621,7 +623,7 @@ g[["Electricity Generation from Wind and Solar"]] <- ggplot(plotData,aes(x=perio
   scale_alpha_manual(values = modelAlpha) +
   scale_linetype_manual(values = modelLinetype) +
   scale_shape_manual(name = "legend",values = modelShape, guide = guide_legend(nrow = 2)) +
-  labs(title = "(a) Electricity Generation from Wind and Solar", subtitle = "TWh/yr") + 
+  labs(title = "(a) Electricity generation from wind and solar", subtitle = "TWh/yr") + 
   scale_x_continuous(expand = c(0, 0)) +
   coord_cartesian(clip = 'off') +
   theme(strip.text = element_blank()) +
@@ -695,7 +697,7 @@ g[["Share in electricity generation"]] <- ggplot(plotData,aes(x=period,y=value))
   scale_alpha_manual(values = modelAlpha) +
   scale_linetype_manual(values = modelLinetype) +
   scale_shape_manual(name = "legend", values = modelShape, guide = guide_legend(nrow = 2)) +
-  labs(title = "(b) Share in electricity generation", subtitle = "%") + 
+  labs(title = "(b) Share of wind and solar in electricity generation", subtitle = "%") + 
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 1, by = 0.2), limits = c(0,1), expand = c(0, 0)) +
   coord_cartesian(clip = 'off') +
@@ -816,7 +818,7 @@ decade_change <- plotData %>%
   scale_color_manual(name = "legend", values = setNames(color[levels(plotData$model)],levels(plotData$model))) +
   scale_alpha_manual(values = modelAlpha) +
   scale_linetype_manual(name = "legend2", values = c("Electricity" = "solid", "Hydrogen" = "dashed")) +
-  labs(title = "Electricity and Hydrogen share in final energy use", subtitle = "%") +
+  labs(title = "Share of electricity and hydrogen in final energy consumption", subtitle = "%") +
   scale_x_continuous(expand = c(0, 0)) +
   coord_cartesian(clip = 'off') +
   theme(strip.text = element_blank()) +
@@ -908,7 +910,7 @@ Figure 3. Electricity and hydrogen final energy shares.
     theme_paper() +
     scale_fill_manual(values = carrier_color, guide = guide_legend(nrow = 3)) +
     theme(axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5)) +
-    labs(title = "(a) Carbon-containing final energy", subtitle = "EJ/yr") +
+    labs(title = "(a) Carbon-based final energy", subtitle = "EJ/yr") +
     theme(legend.key.width = unit(0.7, 'cm'))
     
 ```
@@ -981,7 +983,7 @@ Figure 3. Electricity and hydrogen final energy shares.
     theme_paper() +
     scale_fill_manual(values = carrier_color, guide = guide_legend(nrow = 3)) +
     theme(axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5)) +
-    labs(title = "(b) Energy imports", subtitle = "EJ/yr") +
+    labs(title = "(b) Net energy imports", subtitle = "EJ/yr") +
     theme(legend.key.width = unit(0.7, 'cm')) +
     force_panelsizes(cols = plotData %>% select(model, period) %>% group_by(period) %>% summarize(unique_count = n_distinct(model)) %>% pull(unique_count))
 	
@@ -1040,7 +1042,7 @@ Figure 4. Residual carbon and energy imports.
     "Demand - Transport"          = "Emissions|CO2|Energy|Demand|Transportation",
     #"Demand - Other Sector"      = "Emissions|CO2|Energy|Demand|Other",
     "Energy Supply - Other"       = "Gross Emissions|CO2|Energy|Supply|Other",
-    "Energy Supply - H2"          = "Gross Emissions|CO2|Energy|Supply|H2",
+    "Energy supply - Hydrogen"    = "Gross Emissions|CO2|Energy|Supply|H2",
     "Energy Supply - Solids"      = "Gross Emissions|CO2|Energy|Supply|Solids",
     "Energy Supply - Liquids"     = "Gross Emissions|CO2|Energy|Supply|Liquids",
     "Energy Supply - Gases"       = "Gross Emissions|CO2|Energy|Supply|Gases",
@@ -1052,7 +1054,7 @@ Figure 4. Residual carbon and energy imports.
     )
 
   totalVars <- c(
-    "Total Kyoto Gases"                             = "Emi|Kyoto Gases|synthetic"
+    "Total net Kyoto gases"                             = "Emi|Kyoto Gases|synthetic"
     )
   
   varToSector <- setNames(c(names(vars),rev(names(totalVars))), c(vars,rev(totalVars)))
@@ -1072,7 +1074,7 @@ Figure 4. Residual carbon and energy imports.
     )
   
   totalHistVars <- c(
-    "Total Kyoto Gases"                             = "Emi|GHG|w/ Bunkers"
+    "Total net Kyoto gases"                             = "Emi|GHG|w/ Bunkers"
     )
   
   histVarToSector <- setNames(c(names(histVars),names(totalHistVars)),c(histVars,totalHistVars))
@@ -1088,7 +1090,7 @@ Figure 4. Residual carbon and energy imports.
     "Demand - Transport"          = "#a7c8db",
     #"Demand - Other Sector"      = "#5ed5f0",
     "Energy Supply - Other"       = "#ff33ff",
-    "Energy Supply - H2"          = "#35effc",
+    "Energy supply - Hydrogen"    = "#35effc",
     "Energy Supply - Solids"      = "#0c0c0c",
     "Energy Supply - Liquids"     = "#813499",
     "Energy Supply - Gases"       = "#337fff",
@@ -1099,7 +1101,7 @@ Figure 4. Residual carbon and energy imports.
     )
 
   totalShape <- c(
-    "Total Kyoto Gases"                             = 17
+    "Total net Kyoto gases"                             = 17
     )
   
   plotData <- df %>%
