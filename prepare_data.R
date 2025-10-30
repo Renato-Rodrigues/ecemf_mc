@@ -182,15 +182,15 @@ df_woModel   <- filter(df, model != "PROMETHEUS")
 df_onlyModel <- filter(df, model == "PROMETHEUS")
 #df_onlyModel <- calc_addVariable(df_onlyModel, "`Energy System Cost|Supply`" = "`Energy System Cost` ", units = "billion EUR_2020/yr") # PROMETHEUS hasn't updated reporting yet to report supply side costs under |supply 
 # add missing ne values to approximate missing gross values
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Demand|Industry`" = "`Emissions|CO2|Energy|Demand|Industry` ", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Industrial Processes`" = "`Emissions|CO2|Industrial Processes` ", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Other`" = "`Emissions|CO2|Energy|Supply|Other` ", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|H2`" = "`Emissions|CO2|Energy|Supply|Hydrogen` + (`Carbon Capture|Storage` * ( `Emissions|CO2|Energy|Supply|Hydrogen` / ( `Emissions|CO2|Energy|Supply|Electricity` + `Emissions|CO2|Energy|Supply|Hydrogen` ) ) )", units = "EJ/yr")
-#df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Solids`" = "`Emissions|CO2|Energy|Supply|Solids` ", units = "EJ/yr")
-#df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Liquids`" = "`Emissions|CO2|Energy|Supply|Liquids` ", units = "EJ/yr")
-#df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Gases`" = "`Emissions|CO2|Energy|Supply|Gases` ", units = "EJ/yr")
-#df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Heat`" = "`Emissions|CO2|Energy|Supply|Heat` ", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Electricity`" = "`Emissions|CO2|Energy|Supply|Electricity` + ( `Carbon Capture|Storage` * ( `Emissions|CO2|Energy|Supply|Electricity` / (`Emissions|CO2|Energy|Supply|Electricity` + `Emissions|CO2|Energy|Supply|Hydrogen`) ) )", units = "EJ/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Demand|Industry`" = "`Emissions|CO2|Energy|Demand|Industry` ", units = "MtCO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Industrial Processes`" = "`Emissions|CO2|Industrial Processes` ", units = "MtCO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Other`" = "`Emissions|CO2|Energy|Supply|Other` ", units = "MtCO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|H2`" = "`Emissions|CO2|Energy|Supply|Hydrogen` + (`Carbon Capture|Storage` * ( `Emissions|CO2|Energy|Supply|Hydrogen` / ( `Emissions|CO2|Energy|Supply|Electricity` + `Emissions|CO2|Energy|Supply|Hydrogen` ) ) )", units = "MtCO2/yr")
+#df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Solids`" = "`Emissions|CO2|Energy|Supply|Solids` ", units = "MtCO2/yr")
+#df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Liquids`" = "`Emissions|CO2|Energy|Supply|Liquids` ", units = "MtCO2/yr")
+#df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Gases`" = "`Emissions|CO2|Energy|Supply|Gases` ", units = "MtCO2/yr")
+#df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Heat`" = "`Emissions|CO2|Energy|Supply|Heat` ", units = "MtCO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Electricity`" = "`Emissions|CO2|Energy|Supply|Electricity` + ( `Carbon Capture|Storage` * ( `Emissions|CO2|Energy|Supply|Electricity` / (`Emissions|CO2|Energy|Supply|Electricity` + `Emissions|CO2|Energy|Supply|Hydrogen`) ) )", units = "MtCO2/yr")
 
 # adding missing extra-eu bunkers 
 df_onlyModel <- df_onlyModel %>%
@@ -224,17 +224,17 @@ df_onlyModel <- filter(df, model == "TIAM-ECN")
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Secondary Energy|Gases|Electricity`" = "`Secondary Energy|Gases|Hydrogen`", units = "EJ/yr") # TIAM-ECN reports syngas under "hydrogen", this script uses "electricity" 
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Secondary Energy|Liquids|Electricity`" = "`Secondary Energy|Liquids|Hydrogen`", units = "EJ/yr") # TIAM-ECN reports SE synliq under "hydrogen", this script uses "electricity" 
 
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Emissions|CO2|Industrial Processes`" = "`Emissions|CO2|Energy and Industrial Processes` - `Emissions|CO2|Energy` ", units = "EJ/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Emissions|CO2|Industrial Processes`" = "`Emissions|CO2|Energy and Industrial Processes` - `Emissions|CO2|Energy` ", units = "Mt CO2/yr")
 # add missing ne values to approximate missing gross values
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Demand|Industry`" = "`Emissions|CO2|Energy|Demand|Industry` + 1/3 * `Carbon Capture|Storage|Biomass`", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Industrial Processes`" = "`Emissions|CO2|Industrial Processes` ", units = "EJ/yr")
-#df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Other`" = "`Emissions|CO2|Energy|Supply|Other` ", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|H2`" = "`Emissions|CO2|Energy|Supply|Hydrogen`", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Solids`" = "`Emissions|CO2|Energy|Supply|Solids` ", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Liquids`" = "`Emissions|CO2|Energy|Supply|Liquids` ", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Gases`" = "`Emissions|CO2|Energy|Supply|Gases` + 2/3 * `Carbon Capture|Storage|Biomass`", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Heat`" = "`Emissions|CO2|Energy|Supply|Heat` ", units = "EJ/yr")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Electricity`" = "`Emissions|CO2|Energy|Supply|Electricity`", units = "EJ/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Demand|Industry`" = "`Emissions|CO2|Energy|Demand|Industry` + 1/3 * `Carbon Capture|Storage|Biomass`", units = "Mt CO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Industrial Processes`" = "`Emissions|CO2|Industrial Processes` ", units = "Mt CO2/yr")
+#df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Other`" = "`Emissions|CO2|Energy|Supply|Other` ", units = "Mt CO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|H2`" = "`Emissions|CO2|Energy|Supply|Hydrogen`", units = "Mt CO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Solids`" = "`Emissions|CO2|Energy|Supply|Solids` ", units = "Mt CO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Liquids`" = "`Emissions|CO2|Energy|Supply|Liquids` ", units = "Mt CO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Gases`" = "`Emissions|CO2|Energy|Supply|Gases` + 2/3 * `Carbon Capture|Storage|Biomass`", units = "Mt CO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Heat`" = "`Emissions|CO2|Energy|Supply|Heat` ", units = "Mt CO2/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Electricity`" = "`Emissions|CO2|Energy|Supply|Electricity`", units = "Mt CO2/yrr")
 
 df <- rbind(df_woModel, df_onlyModel)
 
@@ -248,10 +248,10 @@ df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Final Energy|Gases`" = "`Final 
 df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Final Energy|Gases|Fossil`" = "`Final Energy|Gases`", units = "EJ/yr") # WITCH only has fossil gas on SE level, no reporting of biogas 
 # unclear if synliqs should be shifted from h2 to elec, or if they are wrongly reported
 df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Final Energy|Solids|Fossil`" = "`Final Energy|Solids` - `Final Energy|Solids|Biomass`", units = "EJ/yr") # WITCH only reports the biomass solids explicitly 
-df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Emissions|CO2|Other Removal`" = "-`Carbon Removal|Geological Storage`", units = "EJ/yr") # WITCH has DACCS 
-df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Carbon Removal|Geological Storage|BioWITCH`" = "-`Carbon Capture|Storage|Biomass`", units = "EJ/yr") # WITCH has BECCS not reported under geological removals 
+df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Emissions|CO2|Other Removal`" = "-`Carbon Removal|Geological Storage`", units = "Mt CO2/yr") # WITCH has DACCS 
+df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Carbon Removal|Geological Storage|BioWITCH`" = "-`Carbon Capture|Storage|Biomass`", units = "Mt CO2/yr") # WITCH has BECCS not reported under geological removals 
 df <- rbind(df_woWITCH, df_onlyWITCH)
-df <- calc_addVariable(df, "`Carbon Removal|Geological Storage|Integrated`" = "`Carbon Removal|Geological Storage|BioWITCH` - `Carbon Removal|Geological Storage`", units = "EJ/yr", completeMissing = TRUE) # WITCH has BECCS not reported under geological removals 
+df <- calc_addVariable(df, "`Carbon Removal|Geological Storage|Integrated`" = "`Carbon Removal|Geological Storage|BioWITCH` - `Carbon Removal|Geological Storage`", units = "Mt CO2/yr", completeMissing = TRUE) # WITCH has BECCS not reported under geological removals 
 
 df_woModel   <- filter(df, !model %in% modelsFullSystem )
 df_onlyModel <- filter(df, model %in% modelsFullSystem )
@@ -259,7 +259,7 @@ df_onlyModel <- filter(df, model %in% modelsFullSystem )
 # PRIMES
 df_woModel   <- filter(df, model != "PRIMES")
 df_onlyModel <- filter(df, model == "PRIMES")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Carbon Removal|Geological Storage|Integrated`" = "-1 * `Carbon Capture|Storage` * ( `Carbon Capture` / ( `Carbon Capture|Direct Air Capture` + `Carbon Capture|Biomass` ) )", units = "EJ/yr")
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Carbon Removal|Geological Storage|Integrated`" = "-1 * `Carbon Capture|Storage` * ( ( `Carbon Capture|Direct Air Capture` + `Carbon Capture|Biomass` ) / `Carbon Capture` )", units = "MtCO2/yr")
 df <- rbind(df_woModel, df_onlyModel)
 
 # test negative emissions
