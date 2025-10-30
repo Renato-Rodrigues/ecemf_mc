@@ -698,3 +698,139 @@ histOrigN <- calc_addVariable(histOrigN,"`Emi|Kyoto Gases|non-CO2 calc`" = "`Emi
 
 histOrigN <- calc_addVariable(histOrigN, "`SE|Electricity|WindSolar`" = "`SE|Electricity|Wind` + `SE|Electricity|Solar`", units = "EJ/yr")
 histOrigN <- calc_addVariable(histOrigN, "`SE|Electricity|VRE Share`" = "`SE|Electricity|WindSolar` / `SE|Electricity`", units = "%")
+
+
+
+# Adding calculated Mitigation costs as share of consumption
+df <- rbind(df, 
+  data.frame(
+      model = c("IMAGE", "PROMETHEUS", "REMIND", "TIAM-ECN", "WITCH"),
+      value = c(0.003, 0.005, 0.010, 0.006, 0.021)  # converted to decimals
+    ) %>% 
+    mutate(
+      scenario = "WP1 NetZero",
+      region = "EU27 & UK (*)",
+      unit = "%",
+      variable = "Mitigation costs",
+      period = 2050) %>%
+    select(model, scenario, region, variable, unit, period, value)
+)
+
+######### filter charts data #############
+
+if (filterChartsData){
+  dfFull <- df
+  tmp <- dfFull %>% filter(scenario == "WP1 NetZero", region == "EU27 & UK (*)", period >=2010, period <= 2050)
+  
+  df <- tmp %>%
+    filter(
+      model %in% modelsFullSystem,
+      variable %in% c(
+        "Emi|Kyoto Gases|synthetic",
+        "Emissions|CO2|Energy and Industrial Processes",
+        "Final Energy|Electricity Share woBunkers woNonEnergy",
+        "Final Energy|Hydrogen Share woBunkers woNonEnergy",
+        "Final Energy|Gases|Electricity",
+        "Final Energy|Liquids|Electricity",
+        "Final Energy|Gases|Biomass",
+        "Final Energy|Liquids|Biomass",
+        "Final Energy|Solids|Biomass",
+        "Final Energy|Gases|Fossil",   
+        "Final Energy|Liquids|Fossil",
+        "Final Energy|Solids|Fossil",
+        "FE|SolLiqGas",
+        "Emissions|CO2|Energy|Demand|Bunkers",
+        "Emissions|Kyoto Gases|non-CO2 synthetic",
+        "Emissions|CO2|Other",
+        "Emissions|CO2|Energy|Demand|AFOFI",
+        "Emissions|CO2|Energy|Demand|Residential and Commercial",
+        "Gross Emissions|CO2|Energy|Demand|Industry",
+        "Gross Emissions|CO2|Industrial Processes",
+        "Emissions|CO2|Energy|Demand|Transportation",
+        "Gross Emissions|CO2|Energy|Supply|Other",
+        "Gross Emissions|CO2|Energy|Supply|H2",
+        "Gross Emissions|CO2|Energy|Supply|Solids",
+        "Gross Emissions|CO2|Energy|Supply|Liquids",
+        "Gross Emissions|CO2|Energy|Supply|Gases",
+        "Gross Emissions|CO2|Energy|Supply|Heat",
+        "Gross Emissions|CO2|Energy|Supply|Electricity",
+        "Emissions|CO2|AFOLU synthetic",
+        "Carbon Removal|Geological Storage|Integrated",
+        "Emi|Kyoto Gases|synthetic",
+        "Carbon Capture",
+        "Mitigation costs")) %>%
+    rbind(
+      tmp %>%
+        filter(
+          model %in% modelsElecall,
+          variable %in% c(
+            "Emissions|CO2|Energy|Supply|Electricity",
+            "Secondary Energy|Electricity|WindSolar",
+            "Secondary Energy|Electricity|VRE Share",
+            "Trade|Secondary Energy|Electricity|Volume",
+            "Trade|Secondary Energy|Hydrogen|Volume",
+            "Trade|Secondary Energy|Liquids|Electricity|Volume",
+            "Trade|Secondary Energy|Liquids|Hydrogen|Volume",
+            "Trade|Secondary Energy|Liquids|Biomass|Volume",
+            "Trade|Secondary Energy|Solids|Biomass|Volume",
+            "Trade|Primary Energy|Biomass|Volume",
+            "Trade|Primary Energy|Gas|Volume",
+            "Trade|Secondary Energy|Liquids|Oil|Volume",
+            "Trade|Primary Energy|Oil|Volume",
+            "Trade|Secondary Energy|Liquids|Coal|Volume",
+            "Trade|Primary Energy|Coal|Volume",
+            "Price|Carbon")
+        )
+    )
+  
+  histDataFull <- histOrigN
+  tmp <- histDataFull %>% filter(region == "EUR", period >=1990)
+  
+  histData <- tmp %>%
+    filter(
+      model == "UNFCCC",
+      variable %in% c(
+        "Emi|GHG|w/ Bunkers", 
+        "Emi|CO2|w/ Bunkers|Energy and Industrial Processes",
+        "Emi|CO2|Energy|Demand|Transport|International Bunkers",
+        "Emi|Kyoto Gases|non-CO2 calc",
+        "Emi|CO2|Energy|Demand|Buildings",
+        "Emi|CO2|Energy|Demand|Industry",
+        "Emi|CO2|Industrial Processes",
+        "Emi|CO2|Energy|Demand|Transport",
+        "Emi|CO2|Calc Other",
+        "Emi|CO2|Energy|Supply|Solids w/ couple prod",
+        "Emi|CO2|Energy|Supply|Liquids w/ couple prod",
+        "Emi|CO2|Energy|Supply|Electricity and Heat",
+        "Emi|GHG|Land-Use Change")
+    ) %>%
+    rbind(
+      tmp %>%
+        filter(
+          model == "Ember",
+          variable %in% c(
+            "Emi|CO2|Energy|Supply|Electricity w/ couple prod",
+            "SE|Electricity|WindSolar",
+            "SE|Electricity|VRE Share"
+          )
+        )
+    ) %>%
+    rbind(
+      tmp %>%
+        filter(
+          model == "IEA",
+          variable %in% c(
+            "Final Energy|Electricity Share woBunkers woNonEnergy",
+            "Trade|Gas",
+            "Trade|Oil",
+            "Trade|Coal"
+          )
+        )
+    )
+  
+  saveRDS(df,"./data/results.rds")
+  saveRDS(histData,"./data/historical.rds")
+  
+}
+      
+

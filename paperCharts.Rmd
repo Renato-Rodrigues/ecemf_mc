@@ -50,6 +50,7 @@ output:
 ```{r load_data, echo=FALSE, include = FALSE}
 
 downloadData <- FALSE
+filterChartsData <- TRUE
 
 # define models groups
 modelsFullSystem   <- c("IMAGE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH")
@@ -61,9 +62,14 @@ time <- basename(dataFolder)
 outFolder <- paste0("./output/", time)
 dataRDSFile <- paste0("./data/", time, "/WP1_", time, ".rds")
 if(!(downloadData) & (file.exists(dataRDSFile))){
-  df <- readRDS(dataRDSFile)
-  histRDS <- paste0("./data/", time, "/WP1_", time, "_hist.rds")
-  histData <- readRDS(histRDS)
+  if(filterChartsData){
+    df <- readRDS("./data/results.rds")
+    histData <- readRDS("./data/historical.rds")
+  } else {
+    df <- readRDS(dataRDSFile)
+    histRDS <- paste0("./data/", time, "/WP1_", time, "_hist.rds")
+    histData <- readRDS(histRDS)
+  }
 } else {
   source("./prepare_data.R")
   dataFolder <- sort(list.dirs(path = "./data", full.names = TRUE, recursive = FALSE), decreasing = T)[1]
@@ -325,7 +331,7 @@ plotData <- plotDataRaw %>%
   ) %>%
   mutate(model = factor(model, levels=rev(modelsOrder)))
 
-decade_change <- plotData %>% 
+decade_change <- plotData %>%
   filter(model == "median", period %% 10 == 0, period > 2020) %>%
   rbind(
     plotData %>%
@@ -1331,16 +1337,20 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
 ```
 
 
-```{r Share of consumption, echo=FALSE, include=FALSE}
+```{r Mitigation costs, echo=FALSE, include=FALSE}
 
-  plotData <- data.frame(
-      model = c("IMAGE", "PROMETHEUS", "REMIND", "TIAM-ECN", "WITCH"),
-      value = c(0.003, 0.005, 0.010, 0.006, 0.021)  # converted to decimals
-    ) %>% 
-    mutate(min = min(value),
-        max = max(value))
+  plotDataRaw <- df %>%
+    filter(variable == "Mitigation costs",
+           period == 2050,
+           scenario %in% c("WP1 NetZero"),
+           region == "EU27 & UK (*)")
 
-  g[["Share of consumption"]] <- ggplot(plotData, aes(x = 0, y = value)) +
+  plotData <- plotDataRaw %>%
+    mutate(
+      min = min(value),
+      max = max(value))
+
+  g[["Mitigation costs"]] <- ggplot(plotData, aes(x = 0, y = value)) +
     geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
     geom_errorbar(aes(ymin=min, ymax=max), width=0.3, colour="black", alpha=0.9, linewidth=1) +
     geom_boxplot(outlier.shape = NA, width=0.3) +
@@ -1375,12 +1385,12 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
 
 g[["Figure 6"]] <- gridExtra::arrangeGrob(
   g$`Carbon Price`,
-  g$`Share of consumption`,
+  g$`Mitigation costs`,
   layout_matrix = rbind(c(1,1,1,2))
    )
 
-ggsave(paste0(outFolder, "/png/Figure 6 Carbon price and Share of consumption.png"), g[["Figure 6"]], device="png", width = 12, height = 6, dpi=300, units = "in")
-ggsave(paste0(outFolder, "/svg/Figure 6 Carbon price and Share of consumption.svg"), g[["Figure 6"]], device="svg", width = 12, height = 6, dpi=100, units = "in")
+ggsave(paste0(outFolder, "/png/Figure 6 Carbon price and Mitigation costs.png"), g[["Figure 6"]], device="png", width = 12, height = 6, dpi=300, units = "in")
+ggsave(paste0(outFolder, "/svg/Figure 6 Carbon price and Mitigation costs.svg"), g[["Figure 6"]], device="svg", width = 12, height = 6, dpi=100, units = "in")
 
 ```
 
