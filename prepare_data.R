@@ -192,6 +192,22 @@ df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supp
 #df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Heat`" = "`Emissions|CO2|Energy|Supply|Heat` ", units = "EJ/yr")
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supply|Electricity`" = "`Emissions|CO2|Energy|Supply|Electricity` + ( `Carbon Capture|Storage` * ( `Emissions|CO2|Energy|Supply|Electricity` / (`Emissions|CO2|Energy|Supply|Electricity` + `Emissions|CO2|Energy|Supply|Hydrogen`) ) )", units = "EJ/yr")
 
+# adding missing extra-eu bunkers 
+df_onlyModel <- df_onlyModel %>%
+  filter(variable != "Emissions|CO2|Energy|Demand|Bunkers") %>%
+  rbind(
+    df_woModel %>%
+      filter(variable == "Emissions|CO2|Energy|Demand|Bunkers") %>%
+      group_by(period, region, scenario) %>%
+      summarize(average_emissions = mean(value, na.rm = TRUE), .groups = 'drop') %>%
+      mutate(model = "PROMETHEUS",
+             unit = "Mt CO2/yr",
+             variable = "Emissions|CO2|Energy|Demand|Bunkers",
+             value = 2/3*average_emissions) %>%
+      select(model, scenario, region, variable, unit, period, value)
+  )
+
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Emissions|CO2|Energy and Industrial Processes`" = "`Emissions|CO2|Energy and Industrial Processes` + `Emissions|CO2|Energy|Demand|Bunkers`", units = "Mt CO2/yr")
 df <- rbind(df_woModel, df_onlyModel)
 
 # REMIND: 
