@@ -239,18 +239,18 @@ df_onlyModel <- calc_addVariable(df_onlyModel, "`Gross Emissions|CO2|Energy|Supp
 df <- rbind(df_woModel, df_onlyModel)
 
 # WITCH: 
-df_woWITCH   <- filter(df, model != "WITCH")
-df_onlyWITCH <- filter(df, model == "WITCH")
+df_woModel   <- filter(df, model != "WITCH")
+df_onlyModel <- filter(df, model == "WITCH")
 
-df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Final Energy|Liquids`" = "`Final Energy|Liquids` + `Final Energy|Bunkers|Liquids`", units = "EJ/yr") # as of 2025-10-24, WITCH doesn't include Bunkers in the FE carrier totals 
-df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Final Energy|Hydrogen`" = "`Final Energy|Hydrogen` + `Final Energy|Bunkers|Hydrogen`", units = "EJ/yr") # as of 2025-10-24, WITCH doesn't include Bunkers in the FE carrier totals 
-df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Final Energy|Gases`" = "`Final Energy|Gases` + `Final Energy|Bunkers|Gases`", units = "EJ/yr") # as of 2025-10-24, WITCH doesn't include Bunkers in the FE carrier totals 
-df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Final Energy|Gases|Fossil`" = "`Final Energy|Gases`", units = "EJ/yr") # WITCH only has fossil gas on SE level, no reporting of biogas 
+#df_onlyModel <- calc_addVariable(df_onlyModel, "`Final Energy|Liquids`" = "`Final Energy|Liquids` + `Final Energy|Bunkers|Liquids`", units = "EJ/yr") # as of 2025-10-24, WITCH doesn't include Bunkers in the FE carrier totals 
+#df_onlyModel <- calc_addVariable(df_onlyModel, "`Final Energy|Hydrogen`" = "`Final Energy|Hydrogen` + `Final Energy|Bunkers|Hydrogen`", units = "EJ/yr") # as of 2025-10-24, WITCH doesn't include Bunkers in the FE carrier totals 
+#df_onlyModel <- calc_addVariable(df_onlyModel, "`Final Energy|Gases`" = "`Final Energy|Gases` + `Final Energy|Bunkers|Gases`", units = "EJ/yr") # as of 2025-10-24, WITCH doesn't include Bunkers in the FE carrier totals 
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Final Energy|Gases|Fossil`" = "`Final Energy|Gases`", units = "EJ/yr") # WITCH only has fossil gas on SE level, no reporting of biogas 
 # unclear if synliqs should be shifted from h2 to elec, or if they are wrongly reported
-df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Final Energy|Solids|Fossil`" = "`Final Energy|Solids` - `Final Energy|Solids|Biomass`", units = "EJ/yr") # WITCH only reports the biomass solids explicitly 
-df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Emissions|CO2|Other Removal`" = "-`Carbon Removal|Geological Storage`", units = "Mt CO2/yr") # WITCH has DACCS 
-df_onlyWITCH <- calc_addVariable(df_onlyWITCH, "`Carbon Removal|Geological Storage|BioWITCH`" = "-`Carbon Capture|Storage|Biomass`", units = "Mt CO2/yr") # WITCH has BECCS not reported under geological removals 
-df <- rbind(df_woWITCH, df_onlyWITCH)
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Final Energy|Solids|Fossil`" = "`Final Energy|Solids` - `Final Energy|Solids|Biomass`", units = "EJ/yr") # WITCH only reports the biomass solids explicitly 
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Emissions|CO2|Other Removal`" = "-`Carbon Removal|Geological Storage`", units = "Mt CO2/yr") # WITCH has DACCS 
+df_onlyModel <- calc_addVariable(df_onlyModel, "`Carbon Removal|Geological Storage|BioWITCH`" = "-`Carbon Capture|Storage|Biomass`", units = "Mt CO2/yr") # WITCH has BECCS not reported under geological removals 
+df <- rbind(df_woModel, df_onlyModel)
 df <- calc_addVariable(df, "`Carbon Removal|Geological Storage|Integrated`" = "`Carbon Removal|Geological Storage|BioWITCH` - `Carbon Removal|Geological Storage`", units = "Mt CO2/yr", completeMissing = TRUE) # WITCH has BECCS not reported under geological removals 
 
 df_woModel   <- filter(df, !model %in% modelsFullSystem )

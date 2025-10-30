@@ -290,7 +290,7 @@ plotDataRaw <- df %>%
   rbind(
     df %>%
       filter(variable == "Emissions|CO2|Energy and Industrial Processes",
-             period >=2005, period <= 2050,
+             period >=2010, period <= 2050,
              model %in% modelsFullSystem,
              scenario %in% c("WP1 NetZero"),
              region == "EU27 & UK (*)")
@@ -865,7 +865,7 @@ Figure 3. Electricity and hydrogen final energy shares.
   "Fossils - Gases"   = "Final Energy|Gases|Fossil",   
   "Fossils - Liquids" = "Final Energy|Liquids|Fossil",
   "Fossils - Solids"  = "Final Energy|Solids|Fossil")
-  
+
   carrier_color <- c(  
     "Synfuel - Gases"   = "#5ed5f0",
     "Synfuel - Liquids" = "#0177d4",
@@ -1000,7 +1000,6 @@ g[["Figure 4"]] <- gridExtra::arrangeGrob(
     expand_limits(y = limitY),
   layout_matrix = rbind(c(1, 2))
    )
-
 
 ggsave(paste0(outFolder, "/png/Figure 4. Carbon-containing final energy and energy imports.png"), g[["Figure 4"]], device="png", width = 12, height = 8, dpi=300, units = "in")
 ggsave(paste0(outFolder, "/svg/Figure 4. Carbon-containing final energy and energy imports.svg"), g[["Figure 4"]], device="svg", width = 12, height = 8, dpi=100, units = "in")
