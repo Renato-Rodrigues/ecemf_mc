@@ -382,7 +382,7 @@ for( chart in names(g_data)){
     geom_line(data=g_data[[chart]][["data"]] %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) +
     geom_point(data = g_data[[chart]][["data"]] %>% filter(model == "median"), shape = def$median$shape, aes(colour = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
     geom_line(data=g_data[[chart]][["data"]] %>% filter(model == "Historical"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) +
-    geom_label(data = g_data[[chart]][["decade_change"]] %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
+    geom_label(data = g_data[[chart]][["decade_change"]] %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5, size = 2) +
     theme_paper() +
     facet_wrap(~ variable) + 
     scale_color_manual(name = "legend", values = setNames(color[levels(plotData$model)],levels(plotData$model)), guide = guide_legend(nrow = 2)) +
@@ -491,7 +491,7 @@ g[["Figure 1.b"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
   geom_line(data=plotData %>% filter(model == "Historical"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + 
-  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5) +
+  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5, size = 2) +
   theme_paper() + 
   scale_color_manual(name = "legend", values = setNames(color[levels(plotData$model)], levels(plotData$model)), guide = guide_legend(ncol = 2)) +
   scale_alpha_manual(values = modelAlpha) +
