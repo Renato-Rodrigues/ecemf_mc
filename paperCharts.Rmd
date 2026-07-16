@@ -1049,7 +1049,7 @@ Figure 4. Residual carbon and energy imports.
     "Energy Supply - Heat"        = "Gross Emissions|CO2|Energy|Supply|Heat",
     "Energy Supply - Electricity" = "Gross Emissions|CO2|Energy|Supply|Electricity",
     "LULUCF"                      = "Emissions|CO2|AFOLU synthetic",
-    "Geological Carbon Removal"   = "Carbon Removal|Geological Storage|Integrated"#,
+    "Geological Carbon Removal"   = "Carbon Removal|Geological Storage"#,
     # "Other Removal"             = "Emissions|CO2|Other Removal"
     )
 
