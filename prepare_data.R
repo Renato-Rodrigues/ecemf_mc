@@ -15,6 +15,7 @@ if(downloadData || length(list.dirs(path = "./data", full.names = TRUE, recursiv
   dataPath <- paste0("./data/", time)
   dir.create(dataPath, recursive = TRUE, showWarnings = FALSE)
   
+  py_require("pyam-iamc") # make reticulate provision a Python environment with pyam if none is configured
   source_python("./download_iiasa_db.py")
   
   # Downloading metadata
@@ -223,7 +224,17 @@ df <- rbind(df_woModel, df_onlyModel)
 
 
 # test negative emissions
-test <- filter(calc_addVariable(df_onlyModel, "`Emi|CO2|diffToEnInd`"  = "`Emissions|CO2` - `Emissions|CO2|Energy and Industrial Processes` - `Emissions|CO2|AFOLU` - `Emissions|CO2|Other` - `Emissions|CO2|Other Removal` - `Emissions|CO2|Waste`", units = "MtCO2/yr", only.new = TRUE, completeMissing = TRUE),abs(value) > 0.1)
+# quitte error if a formula variable is entirely absent from the data
+# WITCH does not report Other/Other Removal/Waste, so add absent variables as explicit zero rows before the check
+testVars <- c("Emissions|CO2", "Emissions|CO2|Energy and Industrial Processes", "Emissions|CO2|AFOLU",
+              "Emissions|CO2|Other", "Emissions|CO2|Other Removal", "Emissions|CO2|Waste")
+testData <- df_onlyModel %>% mutate(variable = as.character(variable))
+testData <- bind_rows(testData,
+                      testData %>%
+                        distinct(model, scenario, region, period) %>%
+                        tidyr::crossing(variable = setdiff(testVars, unique(testData$variable))) %>%
+                        mutate(unit = "Mt CO2/yr", value = 0))
+test <- filter(calc_addVariable(testData, "`Emi|CO2|diffToEnInd`"  = "`Emissions|CO2` - `Emissions|CO2|Energy and Industrial Processes` - `Emissions|CO2|AFOLU` - `Emissions|CO2|Other` - `Emissions|CO2|Other Removal` - `Emissions|CO2|Waste`", units = "MtCO2/yr", only.new = TRUE, completeMissing = TRUE),abs(value) > 0.1)
 
 # complete missing data for historical:  -->
 
