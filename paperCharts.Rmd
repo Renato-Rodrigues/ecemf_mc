@@ -54,7 +54,7 @@ filterChartsData <- TRUE
 
 # define models groups
 modelsFullSystem   <- c("IMAGE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH")
-modelsElecall      <- c("IMAGE","LIMES", "MEESA","OSeMBE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH")
+modelsElecall      <- c("IMAGE","LIMES", "MEESA","OSeMBE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH","Euro-Calliope")
 
 # select data file
 dataFolder <- sort(list.dirs(path = "./data", full.names = TRUE, recursive = FALSE), decreasing = T)[1]
@@ -74,8 +74,9 @@ if(!(downloadData) & (file.exists(dataRDSFile))){
   source("./prepare_data.R")
   dataFolder <- sort(list.dirs(path = "./data", full.names = TRUE, recursive = FALSE), decreasing = T)[1]
   time <- basename(dataFolder)
+  outFolder <- paste0("./output/", time)
   dataRDS <- paste0("./data/", time, "/WP1_", time, ".rds")
-  saveRDS(df,dataRDSFile)
+  saveRDS(df, dataRDS)
   histRDS <- paste0("./data/", time, "/WP1_", time, "_hist.rds")
   histData <- histOrigN
   saveRDS(histData, histRDS)
@@ -452,7 +453,7 @@ plotDataRaw <- df %>%
 plotData <- plotDataRaw %>%
   rbind(
     plotDataRaw %>%
-      filter(model != "Historical") %>%
+      filter(!model %in% c("Historical", "Euro-Calliope")) %>% # Euro-Calliope excluded from the median
       group_by(scenario, region, variable, unit, period) %>%
       summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
@@ -492,8 +493,9 @@ g[["Figure 1.b"]] <- ggplot(plotData,aes(x=period,y=value)) +
   annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2010, y = 750, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-  geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-  geom_point(data = plotData %>% filter(model != "median", period > 2023), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median", "Euro-Calliope")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(!model %in% c("median", "Euro-Calliope"), period > 2023), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_point(data = plotData %>% filter(model == "Euro-Calliope", period %in% c(2020, 2030, 2050)), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) + # Euro-Calliope as symbols only, no line
   geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
   geom_line(data=plotData %>% filter(model == "Historical"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + 
@@ -580,7 +582,7 @@ plotDataRaw <- df %>%
 plotData <- plotDataRaw %>%
   rbind(
     plotDataRaw %>%
-      filter(model != "Historical") %>%
+      filter(!model %in% c("Historical", "Euro-Calliope")) %>% # Euro-Calliope excluded from the median
       group_by(scenario, region, variable, unit, period) %>%
       summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
@@ -619,8 +621,9 @@ g[["Electricity Generation from Wind and Solar"]] <- ggplot(plotData,aes(x=perio
   annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2012, y = 5000, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-  geom_line(data = plotData %>% filter((!(model %in% c("Historical", "median")))),size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-  geom_point(data = plotData %>% filter(period > 2023, model != "median"), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_line(data = plotData %>% filter((!(model %in% c("Historical", "median", "Euro-Calliope")))),size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(period > 2023, !model %in% c("median", "Euro-Calliope")), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_point(data = plotData %>% filter(model == "Euro-Calliope", period %in% c(2020, 2030, 2050)), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) + # Euro-Calliope as symbols only, no line
   geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
   geom_line(data=plotData %>% filter(model == "Historical"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + 
@@ -655,7 +658,7 @@ plotDataRaw <- df %>%
 plotData <- plotDataRaw %>%
   rbind(
     plotDataRaw %>%
-      filter(model != "Historical") %>%
+      filter(!model %in% c("Historical", "Euro-Calliope")) %>% # Euro-Calliope excluded from the median
       group_by(scenario, region, variable, unit, period) %>%
       summarise(median_value = median(value, na.rm = TRUE)) %>%
       ungroup() %>%
@@ -693,8 +696,9 @@ g[["Share in electricity generation"]] <- ggplot(plotData,aes(x=period,y=value))
   annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2012, y = 0.5, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
-  geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
-  geom_point(data = plotData %>% filter(period > 2023, model != "median"), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median", "Euro-Calliope")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
+  geom_point(data = plotData %>% filter(period > 2023, !model %in% c("median", "Euro-Calliope")), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
+  geom_point(data = plotData %>% filter(model == "Euro-Calliope", period %in% c(2020, 2030, 2050)), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) + # Euro-Calliope as symbols only, no line
   geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
   geom_line(data=plotData %>% filter(model == "Historical"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + 
