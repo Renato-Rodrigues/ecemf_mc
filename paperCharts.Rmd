@@ -49,8 +49,9 @@ output:
 
 ```{r load_data, echo=FALSE, include = FALSE}
 
-downloadData <- FALSE
-filterChartsData <- TRUE
+downloadData <- TRUE
+filterChartsData <- FALSE
+rePrepareData <- TRUE
 
 # define models groups
 modelsFullSystem   <- c("IMAGE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH")
@@ -61,7 +62,7 @@ dataFolder <- sort(list.dirs(path = "./data", full.names = TRUE, recursive = FAL
 time <- basename(dataFolder)
 outFolder <- paste0("./output/", time)
 dataRDSFile <- paste0("./data/", time, "/WP1_", time, ".rds")
-if(!(downloadData) & (file.exists(dataRDSFile))){
+if(!(downloadData) & !(rePrepareData) &(file.exists(dataRDSFile))){
   if(filterChartsData){
     df <- readRDS("./data/results.rds")
     histData <- readRDS("./data/historical.rds")
@@ -82,6 +83,103 @@ if(!(downloadData) & (file.exists(dataRDSFile))){
   saveRDS(histData, histRDS)
 }
 
+```
+
+<!-- ## paper calculations -->
+
+## GHG emission (synthetic)  reductions vs 1990 w/ intra-EU bunkers - calc
+```{r ghg_emissions_reductions_vs_1990_wIntraEU, echo=FALSE, include=FALSE}
+# paper calculations
+
+## ----------------- with intra-EU bunkers
+
+GHGemiWintraEUB <- df %>%
+  filter(variable == "Emi|Kyoto Gases|synthetic w/ intraEU Bunkers",
+         period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
+
+reductionsVs1990_GHGemiWintraEUB <- mutate(GHGemiWintraEUB, value = 1 - value/5453)
+
+quartiles_reductionsVs1990_GHGemiWintraEUB <- reductionsVs1990_GHGemiWintraEUB %>%
+  group_by(period) %>%
+  summarise_at(vars(value), list(
+    Min = min,
+    Mean = mean,
+    Median = median,
+    Max = max,
+    Sd = sd,
+    Q1=~quantile(., probs = 0.25),
+    Q3=~quantile(., probs = 0.75)))
+
+## ----------------- with intra-EU aviation
+
+GHGemiWintraEUAv <- df %>%
+  filter(variable == "Emi|Kyoto Gases|synthetic w/ intraEU Aviation",
+         period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
+
+reductionsVs1990_GHGemiWintraEUAv <- mutate(GHGemiWintraEUAv, value = 1 - value/5407)
+
+quartiles_reductionsVs1990_GHGemiWintraEUAv <- reductionsVs1990_GHGemiWintraEUAv %>%
+  group_by(period) %>%
+  summarise_at(vars(value), list( Min = min, Mean = mean, Median = median, Max = max, Sd = sd, Q1=~quantile(., probs = 0.25), Q3=~quantile(., probs = 0.75)))
+
+## ----------------- without bunkers
+
+GHGemiwoBunk <- df %>%
+  filter(variable == "Emi|Kyoto Gases|synthetic wo Bunkers",
+         period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
+
+reductionsVs1990_GHGemiWoB <- df %>%
+  filter(variable == "Emi|Kyoto Gases|synthetic wo Bunkers| reduction vs 1990",
+         period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
+quartiles_reductionsVs1990_GHGemiWoB <- reductionsVs1990_GHGemiWoB %>%
+  group_by(period) %>%
+  summarise_at(vars(value), list(
+    Min = min,
+    Mean = mean,
+    Median = median,
+    Max = max,
+    Sd = sd,
+    Q1=~quantile(., probs = 0.25),
+    Q3=~quantile(., probs = 0.75)))
+
+## ----------------- with all bunkers
+
+reductionsVs1990_GHGemiWallEUB <- df %>%
+  filter(variable == "Emi|Kyoto Gases|synthetic| reduction vs 1990",
+         period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
+
+
+
+quartiles_reductionsVs1990_GHGemiWallEUB <- reductionsVs1990_GHGemiWallEUB %>%
+  group_by(period) %>%
+  summarise_at(vars(value), list(
+    Min = min,
+    Mean = mean,
+    Median = median,
+    Max = max,
+    Sd = sd,
+    Q1=~quantile(., probs = 0.25),
+    Q3=~quantile(., probs = 0.75)))
+
+
+plotDatafull <- df %>%
+  filter(variable == "Emi|Kyoto Gases|synthetic w/ intraEU Bunkers| reduction vs 1990",
+         period %in% c(2010,2020,2030,2035,2040,2050),
+         scenario == "WP1 NetZero",
+         region == "EU27 & UK (*)", 
+         model %in% modelsFullSystem ) 
+plotData <- plotDatafull %>%
+  mutate (value = - value) %>%
+  group_by(period) %>%
+  summarise_at(vars(value), list(
+    Min = min,
+    Mean = mean,
+    Median = median,
+    Max = max,
+    Sd = sd,
+    Q1=~quantile(., probs = 0.25),
+    Q3=~quantile(., probs = 0.75)))
+    
 ```
 
 
@@ -304,7 +402,7 @@ plotDataRaw <- df %>%
   ) %>%
   rbind(
     histData %>%
-      filter(variable == "Emi|GHG|w/ Bunkers",
+      filter(variable == "Emi|GHG|w/ Bunkers|LULUCF national accounting",
              region == "EUR",
              model == "UNFCCC") %>%
       mutate(variable = "Emi|Kyoto Gases|synthetic",
@@ -634,6 +732,7 @@ g[["Electricity Generation from Wind and Solar"]] <- ggplot(plotData,aes(x=perio
   scale_shape_manual(name = "legend",values = modelShape, guide = guide_legend(nrow = 2)) +
   labs(title = "(a) Electricity generation from wind and solar", subtitle = "TWh/yr") + 
   scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(breaks = seq(0, 8000, by = 2000), limits = c(0,9000), expand = c(0, 0)) +
   coord_cartesian(clip = 'off') +
   theme(strip.text = element_blank()) +
   expand_limits(y = c(0,1)) +
@@ -1059,7 +1158,7 @@ Figure 4. Residual carbon and energy imports.
     "Energy Supply - Heat"        = "Gross Emissions|CO2|Energy|Supply|Heat",
     "Energy Supply - Electricity" = "Gross Emissions|CO2|Energy|Supply|Electricity",
     "LULUCF"                      = "Emissions|CO2|AFOLU synthetic",
-    "Geological Carbon Removal"   = "Carbon Removal|Geological Storage"#,
+    "Geological Carbon Removal"   = "Carbon Removal|Geological Storage|ForPlotting"#,
     # "Other Removal"             = "Emissions|CO2|Other Removal"
     )
 
@@ -1075,16 +1174,16 @@ Figure 4. Residual carbon and energy imports.
     "Demand - Buildings"          = c("Emi|CO2|Energy|Demand|Buildings"),
     "Demand - Industry"           = c("Emi|CO2|Energy|Demand|Industry"),
     "Industrial Processes"        = c("Emi|CO2|Industrial Processes"),
-    "Demand - Transport"          = c("Emi|CO2|Energy|Demand|Transport"),
+    "Demand - Transport"          = c("Emi|CO2|w/o Bunkers|Energy|Demand|Transport"),
     "Energy Supply - Other"       = c("Emi|CO2|Calc Other"),
     "Energy Supply - Solids"      = c("Emi|CO2|Energy|Supply|Solids w/ couple prod"),
     "Energy Supply - Liquids"     = c("Emi|CO2|Energy|Supply|Liquids w/ couple prod"),
     "Energy Supply - Electricity" = c("Emi|CO2|Energy|Supply|Electricity and Heat"),
-    "LULUCF"                      = c("Emi|GHG|Land-Use Change")
+    "LULUCF"                      = c("Emi|CO2|Land-Use Change|LULUCF national accounting")
     )
   
   totalHistVars <- c(
-    "Total net Kyoto gases"                             = "Emi|GHG|w/ Bunkers"
+    "Total net Kyoto gases"                             = "Emi|GHG|w/ Bunkers|LULUCF national accounting"
     )
   
   histVarToSector <- setNames(c(names(histVars),names(totalHistVars)),c(histVars,totalHistVars))
@@ -1137,14 +1236,14 @@ Figure 4. Residual carbon and energy imports.
                period %in% c(2018:2022),
                model == "UNFCCC") %>%
         group_by(model, scenario, region, variable, unit) %>%
-        summarize(value = median(value, na.rm = TRUE)) %>%
+        summarize(value = mean(value, na.rm = TRUE)) %>%
         ungroup() %>%
         mutate(sector = histVarToSector[as.character(variable)],
-               model = "Historical (5yr median)",
+               model = "Historical (5yr average)",
                period = "2020") %>%
         select(all_of(names(df)), sector)
       ) %>%
-    mutate(model = factor(model, levels=rev(c(modelsOrder[modelsOrder != "Historical"], "Historical (5yr median)", "Historical"))),
+    mutate(model = factor(model, levels=rev(c(modelsOrder[modelsOrder != "Historical"], "Historical (5yr average)", "Historical"))),
            sector = factor(sector, levels = c(names(vars), names(totalVars))))
     
 
@@ -1226,6 +1325,7 @@ g[["Carbon Capture"]] <- ggplot(plotData,aes(x=period,y=value)) +
   scale_linetype_manual(values = modelLinetype) +
   labs(title = "(b) Carbon Capture", subtitle = expression(paste("Mt ", CO[2]," /yr"))) + 
   scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(breaks = seq(0, 1000, by = 200), limits = c(0,1050), expand = c(0, 0)) +
   theme(strip.text = element_blank()) +
   coord_cartesian(clip = 'off') +
   theme(legend.position = "right",
@@ -1275,11 +1375,20 @@ Figure 5. Emissions per sector and carbon capture scale-up.
 ```{r Carbon Price, echo=FALSE, include=FALSE}
 
 plotDataRaw <- df %>%
-    filter(variable == "Price|Carbon",
+    filter(variable == "Price|Carbon (weighted by Electricity Demand)",
            period >=2015, period <= 2050,
            model %in% modelsElecall,
+           model != "Euro-Calliope",
            scenario %in% c("WP1 NetZero"),
            region == "EU27 & UK (*)")
+
+quartiles_CarbonPrices <- plotDataRaw %>%
+  group_by(period) %>%
+  summarise_at(vars(value), list( Min = min, Mean = mean, Median = median, Max = max, Sd = sd, Q1=~quantile(., probs = 0.25), Q3=~quantile(., probs = 0.75)))
+
+    quantile(filter(plotData, period == 2030)[["value"]], c(0, 0.25, 0.5, 0.75, 1)) # give out interquartiles    
+    quantile(filter(plotData, period == 2040)[["value"]], c(0, 0.25, 0.5, 0.75, 1)) # give out interquartiles     
+    quantile(filter(plotData, period == 2050)[["value"]], c(0, 0.25, 0.5, 0.75, 1)) # give out interquartiles 
 
 plotData <- plotDataRaw %>%
   rbind(
