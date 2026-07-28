@@ -23,4 +23,4 @@ This program is free software: you can redistribute it and/or modify it under th
 
 ## AUTHOR
 
-Renato Rodrigues
+Renato Rodrigues, Robert Pietzcker
