@@ -1597,18 +1597,7 @@ pe_vars <- c(
   "Other"      = "Primary Energy|Other"
 )
 
-pe_colors <- c(
-  "Coal"       = "#0c0c0c",
-  "Oil"        = "#813499",
-  "Gas"        = "#337fff",
-  "Biomass"    = "#005900",
-  "Hydro"      = "#0000cc",
-  "Wind"       = "#35effc",
-  "Solar"      = "#fcec35",
-  "Nuclear"    = "#ff33ff",
-  "Geothermal" = "#b30000",
-  "Other"      = "#79a6d2"
-)
+pe_colors <- setNames(mip::plotstyle(paste0("PE|", names(pe_vars))), names(pe_vars))
 
 # IEA covers every category over 1990-2023. Nuclear, hydro, wind and solar are only
 # reported at the carrier level, hence the |Electricity variables; geothermal is split
@@ -1820,15 +1809,7 @@ fe_carrier_vars <- c(
   "Electricity" = "Final Energy|Electricity"
 )
 
-fe_carrier_colors <- c(
-  "Hydrogen"    = "#5ed5b0",
-  "Gases"       = "#999959",
-  "Liquids"     = "#0000cc",
-  "Solids"      = "#0c0c0c",
-  "Other"       = "#79a6d2",
-  "Heat"        = "#cc0000",
-  "Electricity" = "#ffb200"
-)
+fe_carrier_colors <- setNames( mip::plotstyle(paste0("FE|", names(fe_carrier_vars))),  names(fe_carrier_vars))
 
 # The IEA carriers add up exactly to the IEA final energy total including bunkers in the historical.mif.
 fe_carrier_hist_map <- data.frame(
@@ -1927,14 +1908,8 @@ if (!("Final Energy|Residential and Commercial" %in% unique(df$variable)) && ("F
   fe_sector_vars["Residential & Commercial"] <- "Final Energy|Buildings"
 }
 
-fe_sector_colors <- c(
-  "Industry"                 = "#5f6769",
-  "Non-Energy Use"           = "#cccccc",
-  "Transportation"           = "#a1dd70",
-  "Residential & Commercial" = "#5edfff",
-  "Agriculture"              = "#005900",
-  "Other Sector"             = "#999959"
-)
+fe_sec_remind <- c("Industry" = "FE|Industry", "Non-Energy Use" = "FE|Non-energy Use", "Transportation" = "FE|Transport", "Residential & Commercial" = "FE|Buildings", "Agriculture" = "FE|AFOFI", "Other Sector" = "FE|Other Sector")
+fe_sector_colors <- setNames(mip::plotstyle(fe_sec_remind), names(fe_sec_remind))
 
 # The IEA has `FE = FE|Industry + FE|Transport + FE|Buildings`, so non-energy is inside industry and bunkers inside transport.
 # Industry comes from the IEA's own w/o-non-energy variable; bunkers I still subtract, to match the models "Final Energy (w/o bunkers)".
@@ -2030,15 +2005,8 @@ Historical source: IEA data
 
 ```{r final_energy_sector_carrier_stacked, echo=FALSE, include=FALSE}
 
-fe_carrier_colors <- c(
-  "Electricity" = "#fcec35",
-  "Heat"        = "#b30000",
-  "Hydrogen"    = "#00ccff",
-  "Gases"       = "#337fff",
-  "Liquids"     = "#813499",
-  "Solids"      = "#0c0c0c",
-  "Other"       = "#79a6d2"
-)
+fe_carrier_cats <- c("Electricity", "Heat", "Hydrogen", "Gases", "Liquids", "Solids", "Other")
+fe_carrier_colors <- setNames(mip::plotstyle(paste0("FE|", fe_carrier_cats)), fe_carrier_cats)
 
 fe_sc_map <- expand.grid(
   sector_raw = c("Industry", "Non-Energy Use","Transportation", "Transport", "Residential and Commercial", "Buildings", "Agriculture", "Other Sector"),
@@ -2193,19 +2161,9 @@ Historical source: Ember, plus BP for oil
 
 ```{r secondary_energy_electricity_stacked, echo=FALSE, include=FALSE}
 
-elec_colors <- c(
-  "Coal"       = "#0c0c0c",
-  "Oil"        = "#813499",
-  "Gas"        = "#337fff",
-  "Biomass"    = "#005900",
-  "Nuclear"    = "#ff33ff",
-  "Hydro"      = "#0000cc",
-  "Wind"       = "#35effc",
-  "Solar"      = "#fcec35",
-  "Geothermal" = "#b30000",
-  "Hydrogen"   = "#5ed5b0",
-  "Other"      = "#79a6d2"
-)
+elec_cats <- c("Coal", "Oil", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar", "Geothermal", "Hydrogen", "Other")
+elec_colors <- setNames(mip::plotstyle(paste0("SE|Electricity|", elec_cats)), elec_cats)
+
 
 se_elec_vars <- setNames(paste0("Secondary Energy|Electricity|", names(elec_colors)), names(elec_colors))
 
