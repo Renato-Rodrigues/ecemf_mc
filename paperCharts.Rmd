@@ -1522,7 +1522,58 @@ Figure 6. Carbon price and Share of consumption.
 
 ## Additional Stacked Bar Charts
 
+```{r stacked_helpers, echo=FALSE, include=FALSE}
+
+# Model orderings for the stacked bar charts. Primary energy, final energy and carbon
+# capture are whole-system quantities, so those charts only show the full system models.
+# The electricity SI charts show all ten models.
+stackedModels     <- c("Historical", "Historical (5yr average)", modelsFullSystem)
+stackedElecModels <- c(modelsFullSystem, "Euro-Calliope", "LIMES", "MEESA", "OSeMBE")
+
+# Two historical bars for the stacked charts - the 2020 value and the 2018-2022 average -
+# both drawn in the 2020 facet. `map` maps historical variable names onto the chart
+# categories; several variables may map onto the same category (they are summed), and an
+# optional `weight` column allows a variable to be subtracted instead (e.g. bunkers).
+histStackedBars <- function(map, histModel = "IEA") {
+  if (!("weight" %in% names(map))) map$weight <- 1
+  groupCols <- setdiff(names(map), c("variable", "weight"))
+
+  perYear <- histData %>%
+    filter(model == histModel, region == "EUR", period %in% 2018:2022) %>%
+    mutate(variable = as.character(variable)) %>%
+    select(variable, period, value) %>%
+    inner_join(map, by = "variable") %>%
+    mutate(value = value * weight) %>%
+    group_by(across(all_of(c(groupCols, "period")))) %>%
+    summarise(value = sum(value, na.rm = TRUE), .groups = "drop")
+
+  bind_rows(
+    perYear %>%
+      filter(period == 2020) %>%
+      mutate(model = "Historical"),
+    perYear %>%
+      group_by(across(all_of(groupCols))) %>%
+      summarise(value = mean(value, na.rm = TRUE), .groups = "drop") %>%
+      mutate(model = "Historical (5yr average)", period = 2020)
+  )
+}
+
+# Number of bars per facet, so the 2020 panel can be widened to fit the historical bars.
+panelBarCounts <- function(...) {
+  bind_rows(lapply(list(...), function(x) x %>% select(model, period))) %>%
+    group_by(period) %>%
+    summarise(n = n_distinct(model), .groups = "drop") %>%
+    arrange(period) %>%
+    pull(n)
+}
+
+```
+
 ### Primary Energy
+
+Historical source: IEA data 
+- IEA covers every category for 2018-2022. Nuclear, hydro, wind and solar are only reported at the carrier level, hence the |Electricity variables; geothermal is split into an electricity and a heat variable which stack into a single segment.
+- The IEA primary energy total also covers waste and heat, to match the total to the bars, the difference is added to "Other".
 
 ```{r primary_energy_stacked, echo=FALSE, include=FALSE}
 
@@ -1552,11 +1603,35 @@ pe_colors <- c(
   "Other"      = "#79a6d2"
 )
 
+# IEA covers every category for 2018-2022. Nuclear, hydro, wind and solar are only
+# reported at the carrier level, hence the |Electricity variables; geothermal is split
+# into an electricity and a heat variable which stack into a single segment.
+pe_hist_map <- data.frame(
+  variable = c("PE|Coal", "PE|Oil", "PE|Gas", "PE|Biomass", "PE|Hydro|Electricity",
+               "PE|Wind|Electricity", "PE|Solar|Electricity", "PE|Uranium|Electricity",
+               "PE|Geothermal|Electricity", "PE|Geothermal|Heat"),
+  category = c("Coal", "Oil", "Gas", "Biomass", "Hydro",
+               "Wind", "Solar", "Nuclear",
+               "Geothermal", "Geothermal"),
+  weight   = c(1, 1, 1, 1, 1,
+               1, 1, 0.334,
+               1, 1),
+  stringsAsFactors = FALSE
+)
+
+# The IEA primary energy total also covers waste and heat, to match the total to the bars, the difference is added to "Other".
+pe_hist_map <- bind_rows(
+  pe_hist_map,
+  data.frame(variable = "PE", category = "Other", weight = 1, stringsAsFactors = FALSE),
+  pe_hist_map %>% mutate(category = "Other", weight = -1)
+)
+
 plotData_PE <- df %>%
   filter(
     variable %in% pe_vars,
     period %in% c(2020, 2030, 2040, 2050),
-    scenario == "WP1 NetZero"
+    scenario == "WP1 NetZero",
+    model %in% modelsFullSystem
   )
 
 if ("EU27 & UK (*)" %in% unique(plotData_PE$region)) {
@@ -1564,26 +1639,42 @@ if ("EU27 & UK (*)" %in% unique(plotData_PE$region)) {
 }
 
 peLabelMap <- setNames(names(pe_vars), pe_vars)
-plotData_PE$variable <- factor(peLabelMap[as.character(plotData_PE$variable)], levels = names(pe_vars))
-plotData_PE$model <- factor(plotData_PE$model, levels = c("LIMES", "MEESA", "OSeMBE", as.character(unique(plotData_PE$model)[!unique(plotData_PE$model) %in% c("LIMES", "MEESA", "OSeMBE")])))
+plotData_PE <- plotData_PE %>%
+  mutate(model = as.character(model), category = peLabelMap[as.character(variable)]) %>%
+  select(model, period, category, value) %>%
+  bind_rows(histStackedBars(pe_hist_map)) %>%
+  mutate(category = factor(category, levels = names(pe_vars)),
+         model = factor(model, levels = stackedModels))
 
 plotData_PE_Total <- df %>%
   filter(
     variable %in% c("Primary Energy", "Primary Energy|w/o Bunkers"),
     period %in% c(2020, 2030, 2040, 2050),
-    scenario == "WP1 NetZero"
+    scenario == "WP1 NetZero",
+    model %in% modelsFullSystem
   )
 if ("EU27 & UK (*)" %in% unique(plotData_PE_Total$region)) {
   plotData_PE_Total <- plotData_PE_Total %>% filter(region == "EU27 & UK (*)")
 }
-plotData_PE_Total$model <- factor(plotData_PE_Total$model, levels = levels(plotData_PE$model))
+
+pe_hist_total_map <- data.frame(
+  variable = c("PE", "PE|Uranium|Electricity"),
+  weight   = c(1, 0.334 - 1),
+  stringsAsFactors = FALSE
+)
+
+plotData_PE_Total <- plotData_PE_Total %>%
+  mutate(model = as.character(model)) %>%
+  select(model, period, value) %>%
+  bind_rows(histStackedBars(pe_hist_total_map)) %>%
+  mutate(model = factor(model, levels = stackedModels))
 
 g[["primary_energy_stacked"]] <- ggplot(plotData_PE) +
   geom_hline(yintercept = 0, color = "black", linewidth = 1, alpha = 0.5) +
-  geom_bar(aes(x = model, y = value, fill = variable), stat = 'identity', alpha = 0.8) +
+  geom_bar(aes(x = model, y = value, fill = category), stat = 'identity', alpha = 0.8) +
   geom_point(data = plotData_PE_Total, aes(x = model, y = value), colour = "black", size = 3, shape = 18) +
   theme_paper() +
-  facet_wrap(~period, nrow = 1) +
+  facet_wrap(~period, nrow = 1, scales = "free_x") +
   scale_fill_manual(values = pe_colors) +
   coord_cartesian(clip = 'off') +
   theme(
@@ -1592,7 +1683,8 @@ g[["primary_energy_stacked"]] <- ggplot(plotData_PE) +
     plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
   ) +
   ylab("Primary Energy (EJ/yr)") +
-  labs(title = "Primary Energy by Carrier")
+  labs(title = "Primary Energy by Carrier") +
+  force_panelsizes(cols = panelBarCounts(plotData_PE, plotData_PE_Total))
 
 ggsave(paste0(outFolder, "/svg/primary_energy_stacked.svg"), g[["primary_energy_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
 ggsave(paste0(outFolder, "/png/primary_energy_stacked.png"), g[["primary_energy_stacked"]], device = "png", width = 12, height = 8, dpi = 100, units = "in")
@@ -1631,7 +1723,8 @@ plotData_CC <- df %>%
   filter(
     variable %in% cc_vars,
     period %in% c(2030, 2040, 2050),
-    scenario == "WP1 NetZero"
+    scenario == "WP1 NetZero",
+    model %in% c(modelsFullSystem, "Euro-Calliope")
   )
 
 if ("EU27 & UK (*)" %in% unique(plotData_CC$region)) {
@@ -1641,18 +1734,19 @@ if ("EU27 & UK (*)" %in% unique(plotData_CC$region)) {
 if (nrow(plotData_CC) > 0) {
   ccLabelMap <- setNames(names(cc_vars), cc_vars)
   plotData_CC$variable <- factor(ccLabelMap[as.character(plotData_CC$variable)], levels = names(cc_vars))
-  plotData_CC$model <- factor(plotData_CC$model, levels = c("LIMES", "MEESA", "OSeMBE", as.character(unique(plotData_CC$model)[!unique(plotData_CC$model) %in% c("LIMES", "MEESA", "OSeMBE")])))
+  plotData_CC$model <- factor(as.character(plotData_CC$model), levels = c(modelsFullSystem, "Euro-Calliope"))
 
   plotData_CC_Total <- df %>%
     filter(
       variable %in% c("Carbon Capture"), #, "Carbon Sequestration", "Carbon Capture|Storage"
       period %in% c(2030, 2040, 2050),
-      scenario == "WP1 NetZero"
+      scenario == "WP1 NetZero",
+      model %in% c(modelsFullSystem, "Euro-Calliope")
     )
   if ("EU27 & UK (*)" %in% unique(plotData_CC_Total$region)) {
     plotData_CC_Total <- plotData_CC_Total %>% filter(region == "EU27 & UK (*)")
   }
-  plotData_CC_Total$model <- factor(plotData_CC_Total$model, levels = levels(plotData_CC$model))
+  plotData_CC_Total$model <- factor(as.character(plotData_CC_Total$model), levels = levels(plotData_CC$model))
 
   g[["carbon_capture_origin_stacked"]] <- ggplot(plotData_CC %>% filter(model != "Euro-Calliope")) +
     geom_hline(yintercept = 0, color = "black", linewidth = 1, alpha = 0.5) +
@@ -1704,6 +1798,9 @@ g[["carbon_capture_origin_stacked"]]
 
 ### Final Energy by Carrier
 
+Historical source: IEA data 
+- The IEA carriers add up exactly to the IEA final energy total including bunkers in the old historical.mif.
+
 ```{r final_energy_carrier_stacked, echo=FALSE, include=FALSE}
 
 fe_carrier_vars <- c(
@@ -1726,11 +1823,19 @@ fe_carrier_colors <- c(
   "Electricity" = "#ffb200"
 )
 
+# The IEA carriers add up exactly to the IEA final energy total including bunkers in the old historical.mif.
+fe_carrier_hist_map <- data.frame(
+  variable = c("FE|Hydrogen", "FE|Gases", "FE|Liquids", "FE|Solids", "FE|Heat", "FE|Electricity"),
+  category = c("Hydrogen", "Gases", "Liquids", "Solids", "Heat", "Electricity"),
+  stringsAsFactors = FALSE
+)
+
 plotData_FEC <- df %>%
   filter(
     variable %in% fe_carrier_vars,
     period %in% c(2020, 2030, 2040, 2050),
-    scenario == "WP1 NetZero"
+    scenario == "WP1 NetZero",
+    model %in% modelsFullSystem
   )
 
 if ("EU27 & UK (*)" %in% unique(plotData_FEC$region)) {
@@ -1738,26 +1843,35 @@ if ("EU27 & UK (*)" %in% unique(plotData_FEC$region)) {
 }
 
 fecLabelMap <- setNames(names(fe_carrier_vars), fe_carrier_vars)
-plotData_FEC$variable <- factor(fecLabelMap[as.character(plotData_FEC$variable)], levels = names(fe_carrier_vars))
-plotData_FEC$model <- factor(plotData_FEC$model, levels = c("LIMES", "MEESA", "OSeMBE", as.character(unique(plotData_FEC$model)[!unique(plotData_FEC$model) %in% c("LIMES", "MEESA", "OSeMBE")])))
+plotData_FEC <- plotData_FEC %>%
+  mutate(model = as.character(model), category = fecLabelMap[as.character(variable)]) %>%
+  select(model, period, category, value) %>%
+  bind_rows(histStackedBars(fe_carrier_hist_map)) %>%
+  mutate(category = factor(category, levels = names(fe_carrier_vars)),
+         model = factor(model, levels = stackedModels))
 
 plotData_FEC_Total <- df %>%
   filter(
     variable == "Final Energy",
     period %in% c(2020, 2030, 2040, 2050),
-    scenario == "WP1 NetZero"
+    scenario == "WP1 NetZero",
+    model %in% modelsFullSystem
   )
 if ("EU27 & UK (*)" %in% unique(plotData_FEC_Total$region)) {
   plotData_FEC_Total <- plotData_FEC_Total %>% filter(region == "EU27 & UK (*)")
 }
-plotData_FEC_Total$model <- factor(plotData_FEC_Total$model, levels = levels(plotData_FEC$model))
+plotData_FEC_Total <- plotData_FEC_Total %>%
+  mutate(model = as.character(model)) %>%
+  select(model, period, value) %>%
+  bind_rows(histStackedBars(data.frame(variable = "FE", stringsAsFactors = FALSE))) %>%
+  mutate(model = factor(model, levels = stackedModels))
 
 g[["final_energy_carrier_stacked"]] <- ggplot(plotData_FEC) +
   geom_hline(yintercept = 0, color = "black", linewidth = 1, alpha = 0.5) +
-  geom_bar(aes(x = model, y = value, fill = variable), stat = 'identity', alpha = 0.8) +
+  geom_bar(aes(x = model, y = value, fill = category), stat = 'identity', alpha = 0.8) +
   geom_point(data = plotData_FEC_Total, aes(x = model, y = value), colour = "black", size = 3, shape = 18) +
   theme_paper() +
-  facet_wrap(~period, nrow = 1) +
+  facet_wrap(~period, nrow = 1, scales = "free_x") +
   scale_fill_manual(values = fe_carrier_colors) +
   coord_cartesian(clip = 'off') +
   theme(
@@ -1766,7 +1880,8 @@ g[["final_energy_carrier_stacked"]] <- ggplot(plotData_FEC) +
     plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
   ) +
   ylab("Final Energy (EJ/yr)") +
-  labs(title = "Final Energy by Carrier")
+  labs(title = "Final Energy by Carrier") +
+  force_panelsizes(cols = panelBarCounts(plotData_FEC, plotData_FEC_Total))
 
 ggsave(paste0(outFolder, "/svg/final_energy_carrier_stacked.svg"), g[["final_energy_carrier_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
 ggsave(paste0(outFolder, "/png/final_energy_carrier_stacked.png"), g[["final_energy_carrier_stacked"]], device = "png", width = 12, height = 8, dpi = 100, units = "in")
@@ -1782,6 +1897,10 @@ g[["final_energy_carrier_stacked"]]
 ---
 
 ### Final Energy per Sector
+
+Historical source: IEA data 
+- The IEA has `FE = FE|Industry + FE|Transport + FE|Buildings`, so non-energy is inside industry and bunkers inside transport. I subtract those to match the models "Final Energy (w/o bunkers)".
+- The IEA has no agriculture or other-sector split.
 
 ```{r final_energy_sector_stacked, echo=FALSE, include=FALSE}
 
@@ -1810,11 +1929,31 @@ fe_sector_colors <- c(
   "Other Sector"             = "#999959"
 )
 
+# The IEA has `FE = FE|Industry + FE|Transport + FE|Buildings`, so non-energy is inside industry and bunkers inside transport.
+# I subtract those to match the models "Final Energy (w/o bunkers)".
+# The IEA has no agriculture or other-sector split.
+fe_sector_hist_map <- data.frame(
+  variable = c("FE|Industry", "FE|Non-energy Use", "FE|Non-energy Use", "FE|Transport",
+               "FE|Transport|Bunkers", "FE|Buildings", "FE|AFOFI", "FE|Other Sector"),
+  category = c("Industry", "Industry", "Non-Energy Use", "Transportation",
+               "Transportation", "Residential & Commercial", "Agriculture", "Other Sector"),
+  weight   = c(1, -1, 1, 1, -1, 1, 1, 1),
+  stringsAsFactors = FALSE
+)
+
+# Matching total: the IEA total includes bunkers, the models' reference does not.
+fe_sector_hist_total_map <- data.frame(
+  variable = c("FE", "FE|Transport|Bunkers"),
+  weight   = c(1, -1),
+  stringsAsFactors = FALSE
+)
+
 plotData_FES <- df %>%
   filter(
     variable %in% fe_sector_vars,
     period %in% c(2020, 2030, 2040, 2050),
-    scenario == "WP1 NetZero"
+    scenario == "WP1 NetZero",
+    model %in% modelsFullSystem
   )
 
 if ("EU27 & UK (*)" %in% unique(plotData_FES$region)) {
@@ -1822,26 +1961,35 @@ if ("EU27 & UK (*)" %in% unique(plotData_FES$region)) {
 }
 
 fesLabelMap <- setNames(names(fe_sector_vars), fe_sector_vars)
-plotData_FES$variable <- factor(fesLabelMap[as.character(plotData_FES$variable)], levels = names(fe_sector_vars))
-plotData_FES$model <- factor(plotData_FES$model, levels = c("LIMES", "MEESA", "OSeMBE", as.character(unique(plotData_FES$model)[!unique(plotData_FES$model) %in% c("LIMES", "MEESA", "OSeMBE")])))
+plotData_FES <- plotData_FES %>%
+  mutate(model = as.character(model), category = fesLabelMap[as.character(variable)]) %>%
+  select(model, period, category, value) %>%
+  bind_rows(histStackedBars(fe_sector_hist_map)) %>%
+  mutate(category = factor(category, levels = names(fe_sector_vars)),
+         model = factor(model, levels = stackedModels))
 
 plotData_FES_Total <- df %>%
   filter(
     variable == "Final Energy (w/o bunkers)",
     period %in% c(2020, 2030, 2040, 2050),
-    scenario == "WP1 NetZero"
+    scenario == "WP1 NetZero",
+    model %in% modelsFullSystem
   )
 if ("EU27 & UK (*)" %in% unique(plotData_FES_Total$region)) {
   plotData_FES_Total <- plotData_FES_Total %>% filter(region == "EU27 & UK (*)")
 }
-plotData_FES_Total$model <- factor(plotData_FES_Total$model, levels = levels(plotData_FES$model))
+plotData_FES_Total <- plotData_FES_Total %>%
+  mutate(model = as.character(model)) %>%
+  select(model, period, value) %>%
+  bind_rows(histStackedBars(fe_sector_hist_total_map)) %>%
+  mutate(model = factor(model, levels = stackedModels))
 
 g[["final_energy_sector_stacked"]] <- ggplot(plotData_FES) +
   geom_hline(yintercept = 0, color = "black", linewidth = 1, alpha = 0.5) +
-  geom_bar(aes(x = model, y = value, fill = variable), stat = 'identity', alpha = 0.8) +
+  geom_bar(aes(x = model, y = value, fill = category), stat = 'identity', alpha = 0.8) +
   geom_point(data = plotData_FES_Total, aes(x = model, y = value), colour = "black", size = 3, shape = 18) +
   theme_paper() +
-  facet_wrap(~period, nrow = 1) +
+  facet_wrap(~period, nrow = 1, scales = "free_x") +
   scale_fill_manual(values = fe_sector_colors) +
   coord_cartesian(clip = 'off') +
   theme(
@@ -1850,7 +1998,8 @@ g[["final_energy_sector_stacked"]] <- ggplot(plotData_FES) +
     plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
   ) +
   ylab("Final Energy (EJ/yr)") +
-  labs(title = "Final Energy per Sector")
+  labs(title = "Final Energy per Sector") +
+  force_panelsizes(cols = panelBarCounts(plotData_FES, plotData_FES_Total))
 
 ggsave(paste0(outFolder, "/svg/final_energy_sector_stacked.svg"), g[["final_energy_sector_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
 ggsave(paste0(outFolder, "/png/final_energy_sector_stacked.png"), g[["final_energy_sector_stacked"]], device = "png", width = 12, height = 8, dpi = 100, units = "in")
@@ -1866,6 +2015,11 @@ g[["final_energy_sector_stacked"]]
 ---
 
 ### Final Energy per Sector and Carrier
+
+Historical source: IEA data 
+- The IEA only splits industry, buildings and transport by carrier, so the historical bars stay empty in the agriculture and other-sector rows.
+- The IEA nests non-energy use inside industry, whereas the models report it as its own sector. I couldn't find a historical breakdown of non-energy use by carrier, so for simplicit I assumed it as feedstock liquids and subtracted from industry to match the historical bars totals. Be aware that this causes only approximated comparisons on gas and liquids carrier levels at industry and non-energy use that I would avoid/fix before showing in any publication.
+
 
 ```{r final_energy_sector_carrier_stacked, echo=FALSE, include=FALSE}
 
@@ -1894,10 +2048,46 @@ fe_sc_map <- expand.grid(
     carrier = carrier_raw
   )
 
+# The IEA only splits industry, buildings and transport by carrier, so the historical
+# bars stay empty in the agriculture and other-sector rows.
+fe_sc_hist_map <- expand.grid(
+  sector_raw  = c("Industry", "Buildings", "Transport"),
+  carrier_raw = c("Electricity", "Gases", "Heat", "Hydrogen", "Liquids", "Solids"),
+  stringsAsFactors = FALSE
+) %>%
+  mutate(
+    variable = paste0("FE|", sector_raw, "|", carrier_raw),
+    sector = case_when(
+      sector_raw == "Transport" ~ "Transportation",
+      sector_raw == "Buildings" ~ "Residential & Commercial",
+      TRUE ~ sector_raw
+    ),
+    carrier = carrier_raw,
+    weight = 1
+  ) %>%
+  select(variable, sector, carrier, weight) %>%
+  # The IEA nests non-energy use inside industry, whereas the models report it as its own sector. 
+  # I couldn't find a historical breakdown of non-energy use by carrier, so for simplicit I assumed it as feedstock liquids and subtracted from industry to match the historical bars totals. 
+  # Be aware that this causes only approximated comparisons on gas and liquids carrier levels at industry and non-energy use that I would avoid/fix before showing in any publication.
+  bind_rows(
+    data.frame(variable = "FE|Non-energy Use", sector = "Industry",
+               carrier = "Liquids", weight = -1, stringsAsFactors = FALSE),
+    data.frame(variable = "FE|Non-energy Use", sector = "Non-Energy Use",
+               carrier = "Liquids", weight = 1, stringsAsFactors = FALSE)
+  )
+
+fe_sc_hist_total_map <- data.frame(
+  variable = c("FE|Industry", "FE|Non-energy Use", "FE|Buildings", "FE|Transport", "FE|Non-energy Use"),
+  sector   = c("Industry", "Industry", "Residential & Commercial", "Transportation", "Non-Energy Use"),
+  weight   = c(1, -1, 1, 1, 1),
+  stringsAsFactors = FALSE
+)
+
 plotData_FE_SC <- df %>%
   filter(
     period %in% c(2020, 2030, 2040, 2050),
-    scenario == "WP1 NetZero"
+    scenario == "WP1 NetZero",
+    model %in% modelsFullSystem
   ) %>%
   inner_join(fe_sc_map, by = "variable")
 
@@ -1906,9 +2096,15 @@ if ("EU27 & UK (*)" %in% unique(plotData_FE_SC$region)) {
 }
 
 if (nrow(plotData_FE_SC) > 0) {
-  plotData_FE_SC$sector <- factor(plotData_FE_SC$sector, levels = c("Industry", "Non-Energy Use", "Transportation", "Residential & Commercial", "Agriculture", "Other Sector"))
-  plotData_FE_SC$carrier <- factor(plotData_FE_SC$carrier, levels = names(fe_carrier_colors))
-  plotData_FE_SC$model <- factor(plotData_FE_SC$model, levels = c("LIMES", "MEESA", "OSeMBE", as.character(unique(plotData_FE_SC$model)[!unique(plotData_FE_SC$model) %in% c("LIMES", "MEESA", "OSeMBE")])))
+  plotData_FE_SC <- plotData_FE_SC %>%
+    mutate(model = as.character(model)) %>%
+    select(model, period, sector, carrier, value) %>%
+    bind_rows(histStackedBars(fe_sc_hist_map)) %>%
+    mutate(
+      sector = factor(sector, levels = c("Industry", "Non-Energy Use", "Transportation", "Residential & Commercial", "Agriculture", "Other Sector")),
+      carrier = factor(carrier, levels = names(fe_carrier_colors)),
+      model = factor(model, levels = stackedModels)
+    )
 
   fes_total_map <- c(
     "Industry"                 = "Final Energy|Industry",
@@ -1929,22 +2125,27 @@ if (nrow(plotData_FE_SC) > 0) {
     filter(
       variable %in% fes_total_map,
       period %in% c(2020, 2030, 2040, 2050),
-      scenario == "WP1 NetZero"
+      scenario == "WP1 NetZero",
+      model %in% modelsFullSystem
     )
   if ("EU27 & UK (*)" %in% unique(plotData_FE_SC_Total$region)) {
     plotData_FE_SC_Total <- plotData_FE_SC_Total %>% filter(region == "EU27 & UK (*)")
   }
 
   fesTotalLabelMap <- setNames(names(fes_total_map), fes_total_map)
-  plotData_FE_SC_Total$sector <- factor(fesTotalLabelMap[as.character(plotData_FE_SC_Total$variable)], levels = levels(plotData_FE_SC$sector))
-  plotData_FE_SC_Total$model <- factor(plotData_FE_SC_Total$model, levels = levels(plotData_FE_SC$model))
+  plotData_FE_SC_Total <- plotData_FE_SC_Total %>%
+    mutate(model = as.character(model), sector = fesTotalLabelMap[as.character(variable)]) %>%
+    select(model, period, sector, value) %>%
+    bind_rows(histStackedBars(fe_sc_hist_total_map)) %>%
+    mutate(sector = factor(sector, levels = levels(plotData_FE_SC$sector)),
+           model = factor(model, levels = stackedModels))
 
   g[["final_energy_sector_carrier_stacked"]] <- ggplot(plotData_FE_SC) +
     geom_hline(yintercept = 0, color = "black", linewidth = 1, alpha = 0.5) +
     geom_bar(aes(x = model, y = value, fill = carrier), stat = 'identity', alpha = 0.8) +
     geom_point(data = plotData_FE_SC_Total, aes(x = model, y = value), colour = "black", size = 3, shape = 18) +
     theme_paper() +
-    facet_grid(sector ~ period, scales = "free_y") +
+    facet_grid(sector ~ period, scales = "free") +
     scale_fill_manual(values = fe_carrier_colors) +
     coord_cartesian(clip = 'off') +
     theme(
@@ -1954,7 +2155,8 @@ if (nrow(plotData_FE_SC) > 0) {
       plot.margin = margin(t = 20, r = 40, b = 20, l = 20)
     ) +
     ylab("Final Energy (EJ/yr)") +
-    labs(title = "Final Energy per Sector and Carrier")
+    labs(title = "Final Energy per Sector and Carrier") +
+    force_panelsizes(cols = panelBarCounts(plotData_FE_SC, plotData_FE_SC_Total))
 
   ggsave(paste0(outFolder, "/svg/final_energy_sector_carrier_stacked.svg"), g[["final_energy_sector_carrier_stacked"]], device = "svg", width = 14, height = 14, dpi = 100, units = "in")
   ggsave(paste0(outFolder, "/png/final_energy_sector_carrier_stacked.png"), g[["final_energy_sector_carrier_stacked"]], device = "png", width = 14, height = 14, dpi = 100, units = "in")
@@ -1967,6 +2169,205 @@ if (nrow(plotData_FE_SC) > 0) {
 if (!is.null(g[["final_energy_sector_carrier_stacked"]])) {
   g[["final_energy_sector_carrier_stacked"]]
 }
+
+```
+
+---
+
+### Secondary Energy | Electricity
+
+
+Historical source: Ember
+- unlike the IEA, Ember reports the generation total.
+- Ember has no oil, geothermal or other category, so the historical stack sits a little below its own total.
+
+
+```{r secondary_energy_electricity_stacked, echo=FALSE, include=FALSE}
+
+elec_colors <- c(
+  "Coal"       = "#0c0c0c",
+  "Oil"        = "#813499",
+  "Gas"        = "#337fff",
+  "Biomass"    = "#005900",
+  "Nuclear"    = "#ff33ff",
+  "Hydro"      = "#0000cc",
+  "Wind"       = "#35effc",
+  "Solar"      = "#fcec35",
+  "Geothermal" = "#b30000",
+  "Hydrogen"   = "#5ed5b0",
+  "Other"      = "#79a6d2"
+)
+
+se_elec_vars <- setNames(paste0("Secondary Energy|Electricity|", names(elec_colors)), names(elec_colors))
+
+# Ember is used for the historical electricity bars rather than the IEA of the other
+# charts: it is the reference dataset for EU power and, unlike the IEA, it reports the
+# generation total. It has no oil, geothermal or other category, so the historical stack
+# sits a little below its own total.
+se_elec_hist_map <- data.frame(
+  variable = paste0("SE|Electricity|", c("Coal", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar")),
+  category = c("Coal", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar"),
+  stringsAsFactors = FALSE
+)
+
+elecModelOrder <- c("Historical", "Historical (5yr average)", stackedElecModels)
+orderElecModels <- function(lims) elecModelOrder[elecModelOrder %in% lims]
+
+plotData_SEE <- df %>%
+  filter(
+    variable %in% se_elec_vars,
+    period %in% c(2020, 2030, 2040, 2050),
+    scenario == "WP1 NetZero",
+    model %in% modelsElecall
+  )
+
+if ("EU27 & UK (*)" %in% unique(plotData_SEE$region)) {
+  plotData_SEE <- plotData_SEE %>% filter(region == "EU27 & UK (*)")
+}
+
+seeLabelMap <- setNames(names(se_elec_vars), se_elec_vars)
+plotData_SEE <- plotData_SEE %>%
+  mutate(model = as.character(model), category = seeLabelMap[as.character(variable)]) %>%
+  select(model, period, category, value) %>%
+  bind_rows(histStackedBars(se_elec_hist_map, histModel = "Ember")) %>%
+  mutate(category = factor(category, levels = names(elec_colors)),
+         model = factor(model, levels = elecModelOrder))
+
+plotData_SEE_Total <- df %>%
+  filter(
+    variable == "Secondary Energy|Electricity",
+    period %in% c(2020, 2030, 2040, 2050),
+    scenario == "WP1 NetZero",
+    model %in% modelsElecall
+  )
+if ("EU27 & UK (*)" %in% unique(plotData_SEE_Total$region)) {
+  plotData_SEE_Total <- plotData_SEE_Total %>% filter(region == "EU27 & UK (*)")
+}
+plotData_SEE_Total <- plotData_SEE_Total %>%
+  mutate(model = as.character(model)) %>%
+  select(model, period, value) %>%
+  bind_rows(histStackedBars(data.frame(variable = "SE|Electricity", stringsAsFactors = FALSE),
+                            histModel = "Ember")) %>%
+  mutate(model = factor(model, levels = elecModelOrder))
+
+g[["secondary_energy_electricity_stacked"]] <- ggplot(plotData_SEE) +
+  geom_hline(yintercept = 0, color = "black", linewidth = 1, alpha = 0.5) +
+  geom_bar(aes(x = model, y = value, fill = category), stat = 'identity', alpha = 0.8) +
+  geom_point(data = plotData_SEE_Total, aes(x = model, y = value), colour = "black", size = 3, shape = 18) +
+  theme_paper() +
+  facet_wrap(~period, nrow = 1, scales = "free_x") +
+  scale_x_discrete(limits = orderElecModels) +
+  scale_fill_manual(values = elec_colors) +
+  coord_cartesian(clip = 'off') +
+  theme(
+    axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
+    strip.text = element_text(size = 12, colour = "black"),
+    plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
+  ) +
+  ylab("Secondary Energy | Electricity (EJ/yr)") +
+  labs(title = "Electricity Generation by Source") +
+  force_panelsizes(cols = panelBarCounts(plotData_SEE, plotData_SEE_Total))
+
+ggsave(paste0(outFolder, "/svg/secondary_energy_electricity_stacked.svg"), g[["secondary_energy_electricity_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
+ggsave(paste0(outFolder, "/png/secondary_energy_electricity_stacked.png"), g[["secondary_energy_electricity_stacked"]], device = "png", width = 12, height = 8, dpi = 100, units = "in")
+
+```
+
+```{r, echo=FALSE, fig.width=12, fig.height=8}
+
+g[["secondary_energy_electricity_stacked"]]
+
+```
+
+---
+
+### Capacity | Electricity
+
+
+Historical source: Ember
+- PRIMES does not report electric capacity at all and LIMES only reports the total, so those two bars stay empty.
+- Storage is left out of the stack: its power capacity is not part of the reported "Capacity|Electricity" total, so including it would push the bars above the diamonds.
+- Embers covers every category except geothermal (about 1 GW in the EU). No source reports a historical capacity total across 2018-2022. Eurostat stops at 2018 and the IEA WEO only starts in 2021 so the historical bars carry no total diamond.
+
+
+```{r capacity_electricity_stacked, echo=FALSE, include=FALSE}
+
+# Storage is left out of the stack: its power capacity is not part of the reported
+# "Capacity|Electricity" total, so including it would push the bars above the diamonds.
+# PRIMES does not report electric capacity at all and LIMES only reports the total, so
+# those two bars stay empty.
+cap_elec_vars <- setNames(paste0("Capacity|Electricity|", names(elec_colors)), names(elec_colors))
+
+# Ember again, for consistency with the generation chart. It covers every category except
+# geothermal (about 1 GW in the EU). No source reports a historical capacity total across
+# 2018-2022 - Eurostat stops at 2018 and the IEA WEO only starts in 2021 - so the
+# historical bars carry no total diamond.
+cap_elec_hist_map <- data.frame(
+  variable = paste0("Cap|Electricity|", c("Coal", "Oil", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar")),
+  category = c("Coal", "Oil", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar"),
+  stringsAsFactors = FALSE
+)
+
+plotData_CAP <- df %>%
+  filter(
+    variable %in% cap_elec_vars,
+    period %in% c(2020, 2030, 2040, 2050),
+    scenario == "WP1 NetZero",
+    model %in% modelsElecall
+  )
+
+if ("EU27 & UK (*)" %in% unique(plotData_CAP$region)) {
+  plotData_CAP <- plotData_CAP %>% filter(region == "EU27 & UK (*)")
+}
+
+capLabelMap <- setNames(names(cap_elec_vars), cap_elec_vars)
+plotData_CAP <- plotData_CAP %>%
+  mutate(model = as.character(model), category = capLabelMap[as.character(variable)]) %>%
+  select(model, period, category, value) %>%
+  bind_rows(histStackedBars(cap_elec_hist_map, histModel = "Ember")) %>%
+  mutate(category = factor(category, levels = names(elec_colors)),
+         model = factor(model, levels = elecModelOrder))
+
+plotData_CAP_Total <- df %>%
+  filter(
+    variable == "Capacity|Electricity",
+    period %in% c(2020, 2030, 2040, 2050),
+    scenario == "WP1 NetZero",
+    model %in% modelsElecall
+  )
+if ("EU27 & UK (*)" %in% unique(plotData_CAP_Total$region)) {
+  plotData_CAP_Total <- plotData_CAP_Total %>% filter(region == "EU27 & UK (*)")
+}
+plotData_CAP_Total <- plotData_CAP_Total %>%
+  mutate(model = factor(as.character(model), levels = elecModelOrder)) %>%
+  select(model, period, value)
+
+g[["capacity_electricity_stacked"]] <- ggplot(plotData_CAP) +
+  geom_hline(yintercept = 0, color = "black", linewidth = 1, alpha = 0.5) +
+  geom_bar(aes(x = model, y = value, fill = category), stat = 'identity', alpha = 0.8) +
+  geom_point(data = plotData_CAP_Total, aes(x = model, y = value), colour = "black", size = 3, shape = 18) +
+  theme_paper() +
+  facet_wrap(~period, nrow = 1, scales = "free_x") +
+  scale_x_discrete(limits = orderElecModels) +
+  scale_fill_manual(values = elec_colors) +
+  coord_cartesian(clip = 'off') +
+  theme(
+    axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
+    strip.text = element_text(size = 12, colour = "black"),
+    plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
+  ) +
+  ylab("Capacity | Electricity (GW)") +
+  labs(title = "Electric Capacity by Source") +
+  force_panelsizes(cols = panelBarCounts(plotData_CAP, plotData_CAP_Total))
+
+ggsave(paste0(outFolder, "/svg/capacity_electricity_stacked.svg"), g[["capacity_electricity_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
+ggsave(paste0(outFolder, "/png/capacity_electricity_stacked.png"), g[["capacity_electricity_stacked"]], device = "png", width = 12, height = 8, dpi = 100, units = "in")
+
+```
+
+```{r, echo=FALSE, fig.width=12, fig.height=8}
+
+g[["capacity_electricity_stacked"]]
 
 ```
 
