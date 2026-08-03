@@ -49,9 +49,9 @@ output:
 
 ```{r load_data, echo=FALSE, include = FALSE}
 
-downloadData <- TRUE
-filterChartsData <- TRUE
-rePrepareData <- TRUE
+downloadData <- FALSE
+filterChartsData <- FALSE   # TRUE narrows df to the Figure-1..6 subset - do not use for a full run
+rePrepareData <- FALSE
 
 # define models groups
 modelsFullSystem   <- c("IMAGE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH")
@@ -370,6 +370,16 @@ def <- list(
   )
 )
 
+# End of the grey "Historical" band. Follow the data instead of a hardcoded year, so the
+# band can never run past the last historical observation - the sources end in different
+# years (UNFCCC 2022, Ember 2024, IEA 2023) and they move with each historical.mif.
+# `fallback` is used for panels that carry no historical series of their own.
+histEnd <- function(d, fallback = 2024) {
+  p <- d$period[d$model == "Historical"]
+  p <- p[!is.na(p)]
+  if (!length(p)) fallback else max(p)
+}
+
 dir.create(paste0(outFolder, "/png"), showWarnings = FALSE, recursive = TRUE)
 dir.create(paste0(outFolder, "/svg"), showWarnings = FALSE, recursive = TRUE)
 
@@ -479,7 +489,7 @@ g <- list()
 for( chart in names(g_data)){
   g[[chart]] <- ggplot(g_data[[chart]][["data"]],aes(x=period,y=value)) +
     geom_segment(data= g_data[[chart]][["data"]] %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
-    annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
+    annotate("rect", xmin = -Inf, xmax = histEnd(g_data[[chart]][["data"]]), ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
     annotate("text", x = 2005, y = 3000, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
     geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
     geom_line(data=g_data[[chart]][["data"]] %>% filter((!(model %in% c("Historical", "median")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
@@ -588,7 +598,7 @@ decade_change <- plotData %>%
 
 g[["Figure 1.b"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
-  annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
+  annotate("rect", xmin = -Inf, xmax = histEnd(plotData), ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2010, y = 750, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
   geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median", "Euro-Calliope")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
@@ -716,7 +726,7 @@ decade_change <- plotData %>%
 
 g[["Electricity Generation from Wind and Solar"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
-  annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
+  annotate("rect", xmin = -Inf, xmax = histEnd(plotData), ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2012, y = 5000, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
   geom_line(data = plotData %>% filter((!(model %in% c("Historical", "median", "Euro-Calliope")))),size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
@@ -792,7 +802,7 @@ decade_change <- plotData %>%
 
 g[["Share in electricity generation"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
-  annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
+  annotate("rect", xmin = -Inf, xmax = histEnd(plotData), ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2012, y = 0.5, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
   geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median", "Euro-Calliope")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
@@ -915,7 +925,7 @@ decade_change <- plotData %>%
 
  g[["Figure 3"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
-  annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
+  annotate("rect", xmin = -Inf, xmax = histEnd(plotData), ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2012, y = 0.5, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
   geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median")))), size=def$model$lineSize,aes(color=model,linetype=carrier, alpha = model), show.legend = c(linetype = FALSE, colour = TRUE)) + # models data
@@ -1312,7 +1322,7 @@ decade_change <- plotData %>%
 
 g[["Carbon Capture"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
-  annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
+  annotate("rect", xmin = -Inf, xmax = histEnd(plotData), ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2017.5, y = 500, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
   geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
@@ -1424,7 +1434,7 @@ decade_change <- plotData %>%
 
 g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
-  annotate("rect", xmin = -Inf, xmax = 2024, ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
+  annotate("rect", xmin = -Inf, xmax = histEnd(plotData), ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
   annotate("text", x = 2019.5, y = 600, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
   geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
