@@ -49,9 +49,9 @@ output:
 
 ```{r load_data, echo=FALSE, include = FALSE}
 
-downloadData <- FALSE
-filterChartsData <- FALSE
-rePrepareData <- FALSE
+downloadData <- TRUE
+filterChartsData <- TRUE
+rePrepareData <- TRUE
 
 # define models groups
 modelsFullSystem   <- c("IMAGE","PRIMES","PROMETHEUS","REMIND","TIAM-ECN","WITCH")
@@ -1524,25 +1524,21 @@ Figure 6. Carbon price and Share of consumption.
 
 ```{r stacked_helpers, echo=FALSE, include=FALSE}
 
-# Model orderings for the stacked bar charts. Primary energy, final energy and carbon
-# capture are whole-system quantities, so those charts only show the full system models.
-# The electricity SI charts show all ten models.
 stackedModels     <- c("Historical", "Historical (5yr average)", modelsFullSystem)
 stackedElecModels <- c(modelsFullSystem, "Euro-Calliope", "LIMES", "MEESA", "OSeMBE")
 
-# Two historical bars for the stacked charts - the 2020 value and the 2018-2022 average -
-# both drawn in the 2020 facet. `map` maps historical variable names onto the chart
-# categories; several variables may map onto the same category (they are summed), and an
-# optional `weight` column allows a variable to be subtracted instead (e.g. bunkers).
+# Two historical bars for the stacked charts - the 2020 value and the 2018-2022 average
 histStackedBars <- function(map, histModel = "IEA") {
   if (!("weight" %in% names(map))) map$weight <- 1
-  groupCols <- setdiff(names(map), c("variable", "weight"))
+  if (!("source" %in% names(map))) map$source <- histModel
+  map$source[is.na(map$source)] <- histModel
+  groupCols <- setdiff(names(map), c("variable", "weight", "source"))
 
   perYear <- histData %>%
-    filter(model == histModel, region == "EUR", period %in% 2018:2022) %>%
-    mutate(variable = as.character(variable)) %>%
-    select(variable, period, value) %>%
-    inner_join(map, by = "variable") %>%
+    filter(region == "EUR", period %in% 2018:2022) %>%
+    mutate(source = as.character(model), variable = as.character(variable)) %>%
+    select(source, variable, period, value) %>%
+    inner_join(map, by = c("source", "variable")) %>%
     mutate(value = value * weight) %>%
     group_by(across(all_of(c(groupCols, "period")))) %>%
     summarise(value = sum(value, na.rm = TRUE), .groups = "drop")
@@ -1571,8 +1567,9 @@ panelBarCounts <- function(...) {
 
 ### Primary Energy
 
-Historical source: IEA data 
-- IEA covers every category for 2018-2022. Nuclear, hydro, wind and solar are only reported at the carrier level, hence the |Electricity variables; geothermal is split into an electricity and a heat variable which stack into a single segment.
+Historical source: IEA data
+- IEA covers every category over 1990-2023. Nuclear, hydro, wind and solar are only reported at the carrier level, hence the |Electricity variables; geothermal is split into an electricity and a heat variable which stack into a single segment.
+- The IEA reports nuclear as primary heat, the models as direct equivalent, so nuclear is scaled by 0.334 in both the bars and the total.
 - The IEA primary energy total also covers waste and heat, to match the total to the bars, the difference is added to "Other".
 
 ```{r primary_energy_stacked, echo=FALSE, include=FALSE}
@@ -1603,7 +1600,7 @@ pe_colors <- c(
   "Other"      = "#79a6d2"
 )
 
-# IEA covers every category for 2018-2022. Nuclear, hydro, wind and solar are only
+# IEA covers every category over 1990-2023. Nuclear, hydro, wind and solar are only
 # reported at the carrier level, hence the |Electricity variables; geothermal is split
 # into an electricity and a heat variable which stack into a single segment.
 pe_hist_map <- data.frame(
@@ -1799,7 +1796,7 @@ g[["carbon_capture_origin_stacked"]]
 ### Final Energy by Carrier
 
 Historical source: IEA data 
-- The IEA carriers add up exactly to the IEA final energy total including bunkers in the old historical.mif.
+- The IEA carriers add up exactly to the IEA final energy total, bunkers included, which matches the models "Final Energy" used here (checked again on the current historical.mif: agrees to 1e-4 for 2018-2023).
 
 ```{r final_energy_carrier_stacked, echo=FALSE, include=FALSE}
 
@@ -1823,7 +1820,7 @@ fe_carrier_colors <- c(
   "Electricity" = "#ffb200"
 )
 
-# The IEA carriers add up exactly to the IEA final energy total including bunkers in the old historical.mif.
+# The IEA carriers add up exactly to the IEA final energy total including bunkers in the historical.mif.
 fe_carrier_hist_map <- data.frame(
   variable = c("FE|Hydrogen", "FE|Gases", "FE|Liquids", "FE|Solids", "FE|Heat", "FE|Electricity"),
   category = c("Hydrogen", "Gases", "Liquids", "Solids", "Heat", "Electricity"),
@@ -1899,7 +1896,7 @@ g[["final_energy_carrier_stacked"]]
 ### Final Energy per Sector
 
 Historical source: IEA data 
-- The IEA has `FE = FE|Industry + FE|Transport + FE|Buildings`, so non-energy is inside industry and bunkers inside transport. I subtract those to match the models "Final Energy (w/o bunkers)".
+- The IEA has `FE = FE|Industry + FE|Transport + FE|Buildings`, so non-energy is inside industry and bunkers inside transport. Industry comes from the IEA's own `FE|w/o Non-energy Use|Industry`; bunkers I still subtract, to match the models "Final Energy (w/o bunkers)".
 - The IEA has no agriculture or other-sector split.
 
 ```{r final_energy_sector_stacked, echo=FALSE, include=FALSE}
@@ -1930,14 +1927,14 @@ fe_sector_colors <- c(
 )
 
 # The IEA has `FE = FE|Industry + FE|Transport + FE|Buildings`, so non-energy is inside industry and bunkers inside transport.
-# I subtract those to match the models "Final Energy (w/o bunkers)".
+# Industry comes from the IEA's own w/o-non-energy variable; bunkers I still subtract, to match the models "Final Energy (w/o bunkers)".
 # The IEA has no agriculture or other-sector split.
 fe_sector_hist_map <- data.frame(
-  variable = c("FE|Industry", "FE|Non-energy Use", "FE|Non-energy Use", "FE|Transport",
+  variable = c("FE|w/o Non-energy Use|Industry", "FE|Non-energy Use", "FE|Transport",
                "FE|Transport|Bunkers", "FE|Buildings", "FE|AFOFI", "FE|Other Sector"),
-  category = c("Industry", "Industry", "Non-Energy Use", "Transportation",
+  category = c("Industry", "Non-Energy Use", "Transportation",
                "Transportation", "Residential & Commercial", "Agriculture", "Other Sector"),
-  weight   = c(1, -1, 1, 1, -1, 1, 1, 1),
+  weight   = c(1, 1, 1, -1, 1, 1, 1),
   stringsAsFactors = FALSE
 )
 
@@ -2018,7 +2015,7 @@ g[["final_energy_sector_stacked"]]
 
 Historical source: IEA data 
 - The IEA only splits industry, buildings and transport by carrier, so the historical bars stay empty in the agriculture and other-sector rows.
-- The IEA nests non-energy use inside industry, whereas the models report it as its own sector. I couldn't find a historical breakdown of non-energy use by carrier, so for simplicit I assumed it as feedstock liquids and subtracted from industry to match the historical bars totals. Be aware that this causes only approximated comparisons on gas and liquids carrier levels at industry and non-energy use that I would avoid/fix before showing in any publication.
+- The IEA nests non-energy use inside industry, whereas the models report it as its own sector. The sector *totals* need no assumption - the IEA reports `FE|w/o Non-energy Use|Industry` directly - but the *carrier* split still does: the IEA series used here has no non-energy-use breakdown by carrier, so for simplicity I assumed it all feedstock liquids and moved it out of industry liquids. (The current mif does have `FE|Non-energy Use|Industry|Liquids|Fossil`, but only on the IEA WEO 2025 rows, not the IEA series used here.) Be aware that this causes only approximated comparisons on gas and liquids carrier levels at industry and non-energy use that I would avoid/fix before showing in any publication.
 
 
 ```{r final_energy_sector_carrier_stacked, echo=FALSE, include=FALSE}
@@ -2076,10 +2073,11 @@ fe_sc_hist_map <- expand.grid(
                carrier = "Liquids", weight = 1, stringsAsFactors = FALSE)
   )
 
+# The sector totals need no subtraction: the IEA reports industry excluding non-energy use
+# directly. Only the carrier split above still rests on the all-liquids assumption.
 fe_sc_hist_total_map <- data.frame(
-  variable = c("FE|Industry", "FE|Non-energy Use", "FE|Buildings", "FE|Transport", "FE|Non-energy Use"),
-  sector   = c("Industry", "Industry", "Residential & Commercial", "Transportation", "Non-Energy Use"),
-  weight   = c(1, -1, 1, 1, 1),
+  variable = c("FE|w/o Non-energy Use|Industry", "FE|Buildings", "FE|Transport", "FE|Non-energy Use"),
+  sector   = c("Industry", "Residential & Commercial", "Transportation", "Non-Energy Use"),
   stringsAsFactors = FALSE
 )
 
@@ -2177,9 +2175,10 @@ if (!is.null(g[["final_energy_sector_carrier_stacked"]])) {
 ### Secondary Energy | Electricity
 
 
-Historical source: Ember
+Historical source: Ember, plus BP for oil
 - unlike the IEA, Ember reports the generation total.
-- Ember has no oil, geothermal or other category, so the historical stack sits a little below its own total.
+- Ember has no oil; BP does, on the same basis (the two agree to within 1% on nuclear, wind, solar and hydro), so oil comes from BP. Not from the IEA: its `SE|Electricity` rows in this mif are labelled EJ/yr but sum to ~127 EJ, about twice the EU's entire primary energy, so they are unusable.
+- Geothermal and other generation are still missing (no usable source), so the historical stack sits slightly below its own total.
 
 
 ```{r secondary_energy_electricity_stacked, echo=FALSE, include=FALSE}
@@ -2202,12 +2201,21 @@ se_elec_vars <- setNames(paste0("Secondary Energy|Electricity|", names(elec_colo
 
 # Ember is used for the historical electricity bars rather than the IEA of the other
 # charts: it is the reference dataset for EU power and, unlike the IEA, it reports the
-# generation total. It has no oil, geothermal or other category, so the historical stack
-# sits a little below its own total.
-se_elec_hist_map <- data.frame(
-  variable = paste0("SE|Electricity|", c("Coal", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar")),
-  category = c("Coal", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar"),
-  stringsAsFactors = FALSE
+# generation total. It has no geothermal or other category, so the historical stack still
+# sits slightly below its own total.
+se_elec_hist_map <- bind_rows(
+  data.frame(
+    variable = paste0("SE|Electricity|", c("Coal", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar")),
+    category = c("Coal", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar"),
+    source   = "Ember",
+    stringsAsFactors = FALSE
+  ),
+  # Ember reports no oil; BP does, on the same basis (the two agree to within 1% on
+  # nuclear, wind, solar and hydro), so the oil segment comes from BP. NOT from the IEA:
+  # its SE|Electricity rows in this mif are labelled EJ/yr but sum to ~127 EJ, about
+  # twice the EU's entire primary energy, so they are unusable here.
+  data.frame(variable = "SE|Electricity|Oil", category = "Oil", source = "BP",
+             stringsAsFactors = FALSE)
 )
 
 elecModelOrder <- c("Historical", "Historical (5yr average)", stackedElecModels)
@@ -2284,10 +2292,11 @@ g[["secondary_energy_electricity_stacked"]]
 ### Capacity | Electricity
 
 
-Historical source: Ember
+Historical source: Ember, plus IRENA for geothermal
 - PRIMES does not report electric capacity at all and LIMES only reports the total, so those two bars stay empty.
 - Storage is left out of the stack: its power capacity is not part of the reported "Capacity|Electricity" total, so including it would push the bars above the diamonds.
-- Embers covers every category except geothermal (about 1 GW in the EU). No source reports a historical capacity total across 2018-2022. Eurostat stops at 2018 and the IEA WEO only starts in 2021 so the historical bars carry no total diamond.
+- Ember covers every category except geothermal (about 0.9 GW in the EU), which comes from IRENA. The two combine cleanly - Ember's renewables capacity is IRENA data anyway, hydro, solar and wind match to four decimals.
+- No source reports a usable historical capacity total across 2018-2022, so the historical bars carry no total diamond. Eurostat stops at 2018; the IEA WEO 2025 gives 2023 but is scope-inconsistent against Ember (solar matches to 0.02% while hydro is +67% and coal +52%), so it is not used.
 
 
 ```{r capacity_electricity_stacked, echo=FALSE, include=FALSE}
@@ -2298,14 +2307,21 @@ Historical source: Ember
 # those two bars stay empty.
 cap_elec_vars <- setNames(paste0("Capacity|Electricity|", names(elec_colors)), names(elec_colors))
 
-# Ember again, for consistency with the generation chart. It covers every category except
-# geothermal (about 1 GW in the EU). No source reports a historical capacity total across
-# 2018-2022 - Eurostat stops at 2018 and the IEA WEO only starts in 2021 - so the
-# historical bars carry no total diamond.
-cap_elec_hist_map <- data.frame(
-  variable = paste0("Cap|Electricity|", c("Coal", "Oil", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar")),
-  category = c("Coal", "Oil", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar"),
-  stringsAsFactors = FALSE
+# Ember again, for consistency with the generation chart, plus IRENA for geothermal.
+# No source reports a historical capacity total across 2018-2022 - Eurostat stops at 2018
+# and the IEA WEO only gives 2023 - so the historical bars carry no total diamond.
+cap_elec_hist_map <- bind_rows(
+  data.frame(
+    variable = paste0("Cap|Electricity|", c("Coal", "Oil", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar")),
+    category = c("Coal", "Oil", "Gas", "Biomass", "Nuclear", "Hydro", "Wind", "Solar"),
+    source   = "Ember",
+    stringsAsFactors = FALSE
+  ),
+  # Ember has no geothermal; IRENA does, and Ember's renewables capacity is IRENA data
+  # anyway (hydro, solar and wind match to four decimals), so the two combine cleanly.
+  # It is only ~0.9 GW of ~1030 GW, but it completes the category set.
+  data.frame(variable = "Cap|Electricity|Geothermal", category = "Geothermal",
+             source = "IRENA", stringsAsFactors = FALSE)
 )
 
 plotData_CAP <- df %>%

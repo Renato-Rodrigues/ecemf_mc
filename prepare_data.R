@@ -246,13 +246,11 @@ histOrigN_onlyModel <- filter(histOrigN, model == "UNFCCC")
 
 histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|CO2|Calc Other`" = "`Emi|CO2|Energy and Industrial Processes` - `Emi|CO2|Energy|Supply` - `Emi|CO2|Energy|Demand` - `Emi|CO2|Industrial Processes`", units = "Mt CO2/yr", completeMissing = TRUE) # UNFCCC mapping currently misses some emissions to match the totals 
 histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|GHG|Calc Other`" = "`Emi|GHG|Energy and Industrial Processes` - `Emi|GHG|Energy` - `Emi|GHG|Industrial Processes`", units = "Mt CO2e/yr", completeMissing = TRUE) # UNFCCC mapping currently misses some emissions to match the totals 
-histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|GHG|w/ Bunkers|LULUCF national accounting`" = "`Emi|GHG|w/ Bunkers`", units = "Mt CO2/yr", completeMissing = TRUE)
-histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|CO2|LULUCF national accounting`" = "`Emi|CO2|w/ Bunkers`", units = "Mt CO2/yr", completeMissing = TRUE)
-histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|GHG|w/o Bunkers|LULUCF national accounting`" = "`Emi|GHG|w/ Bunkers` - `Emi|GHG|Energy|Demand|Transport|International Bunkers`", units = "Mt CO2/yr", completeMissing = TRUE)
+histOrigN_onlyModel <- filter(histOrigN_onlyModel, variable != "Emi|GHG|LULUCF national accounting")
 histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|GHG|LULUCF national accounting`" = "`Emi|GHG|w/o Bunkers|LULUCF national accounting`", units = "Mt CO2/yr", completeMissing = TRUE)
-histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|GHG|w/ intraEU Bunkers|LULUCF national accounting`" = "`Emi|GHG|w/o Bunkers|LULUCF national accounting` + 0.33 * `Emi|GHG|Energy|Demand|Transport|International Bunkers` ", units = "Mt CO2/yr", completeMissing = TRUE) # calculate ex-EU bunkers as 33% of total bunkers 
+histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|GHG|w/ intraEU Bunkers|LULUCF national accounting`" = "`Emi|GHG|w/o Bunkers|LULUCF national accounting` + 0.33 * `Emi|GHG|Energy|Demand|Transport|International Bunkers` ", units = "Mt CO2/yr", completeMissing = TRUE) # calculate ex-EU bunkers as 33% of total bunkers
 histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel,"`Emi|Kyoto Gases|non-CO2 calc`" = "`Emi|GHG|LULUCF national accounting` - `Emi|CO2|LULUCF national accounting`", units = "MtCO2e/yr", completeMissing = TRUE)
-histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel,"`Emi|Kyoto Gases|non-CO2 calc|Land-Use Change`" = "`Emi|GHG|Land-Use Change` - `Emi|CO2|Land-Use Change`", units = "MtCO2e/yr", completeMissing = TRUE)
+histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel,"`Emi|Kyoto Gases|non-CO2 calc|Land-Use Change`" = "`Emi|GHG|Land-Use Change|LULUCF national accounting` - `Emi|CO2|Land-Use Change|LULUCF national accounting`", units = "MtCO2e/yr", completeMissing = TRUE)
 
 histOrigN <- rbind(histOrigN_woModel, histOrigN_onlyModel)
 
@@ -678,7 +676,9 @@ histOrigN <- rbind(
   histOrigN %>% filter(region == "EUR", model == "UNFCCC", variable == "Emi|GHG|LULUCF national accounting") %>%
     mutate(variable = "Emissions|Kyoto Gases reduction vs 1990",
            value = 1 - (value / histOrigN %>% filter(region == "EUR", model == "UNFCCC", variable == "Emi|GHG|LULUCF national accounting", period == "1990") %>% pull(value) ) ),
-  histOrigN %>% filter(region == "EU27", model == "UNFCCC", variable == "Emi|GHG") %>%
+  # EU27 used to carry a plain `Emi|GHG`; its successor in the newer mifs is the explicit
+  # w/o bunkers variant (matches the old values to within the usual vintage drift).
+  histOrigN %>% filter(region == "EU27", model == "UNFCCC", variable == "Emi|GHG|w/o Bunkers|LULUCF national accounting") %>%
     mutate(variable = "Emissions|Kyoto Gases reduction vs 1990",
            value = 1 - (value / histOrigN %>% filter(region == "EU27", model == "UNFCCC", variable == "Emi|GHG|LULUCF national accounting", period == "1990") %>% pull(value) ) )
 )
