@@ -182,6 +182,20 @@ plotData <- plotDatafull %>%
     
 ```
 
+## Energy System Cost|Supply increases - calc
+```{r energy_system_cost_increase, echo=FALSE, include=FALSE}
+# paper calculations
+
+EnSysCostIncrease <- df %>%
+  filter(variable == "Energy System Cost|Supply|aggregated|% Change toNPi",
+         period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
+
+quartiles_EnSysCostIncrease <- EnSysCostIncrease %>%
+  group_by(period) %>%
+  summarise_at(vars(value), list( Min = min, Mean = mean, Median = median, Max = max, Sd = sd, Q1=~quantile(., probs = 0.25), Q3=~quantile(., probs = 0.75)))
+
+    
+```
 
 ```{r create_charts, echo=FALSE, include=FALSE}
 
@@ -275,7 +289,7 @@ modelShape <- c(
   "mean"          = NA, 
   "median"        = 21,
   "IMAGE"         = 21,
-  "Euro-Calliope" = 21, 
+  "Euro-Calliope" = 4, 
   "MESSAGE"       = 21, 
   "PRIMES"        = 21, 
   "PROMETHEUS"    = 21, 
