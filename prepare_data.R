@@ -165,17 +165,13 @@ df <- rbind(df_woModel, df_onlyModel)
 #OSEMBE
 df_woModel   <- filter(df, model != "OSeMBE")
 df_onlyModel <- filter(df, model == "OSeMBE")
-
-# fill missing OSEMBE Solar data
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Secondary Energy|Electricity|Solar`" = "`Secondary Energy|Electricity|Solar|PV`", units = "EJ/yr", completeMissing = TRUE)
+# no helper calculations required
 df <- rbind(df_woModel, df_onlyModel)
 
 #PRIMES
 df_woModel   <- filter(df, model != "PRIMES")
 df_onlyModel <- filter(df, model == "PRIMES")
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Price|Carbon (weighted by Electricity Demand)`" = "`Price|Carbon` ", units = "EUR_2020/t CO2") # PRIMES hasn't reprocessed their upload 
-df_onlyModel <- calc_addVariable(df_onlyModel, "`Carbon Removal|Geological Storage`" = "`Carbon Capture|Storage` * ( ( `Carbon Capture|Direct Air Capture` + `Carbon Capture|Biomass` ) / `Carbon Capture` )", units = "MtCO2/yr")
-
+# no helper calculations required
 df <- rbind(df_woModel, df_onlyModel)
 
 
@@ -211,9 +207,25 @@ df <- rbind(df_woModel, df_onlyModel)
 df_woModel   <- filter(df, model != "TIAM-ECN")
 df_onlyModel <- filter(df, model == "TIAM-ECN")
 
-df_onlyModel <- df_onlyModel %>% mutate(value = if_else(model == "TIAM-ECN" & scenario == "WP1 NetZero" & region == "EU27 & UK (*)" & variable == "Emissions|CO2|Energy|Supply|Electricity" & period == 2030, 72, value))
+#df_onlyModel <- df_onlyModel %>% mutate(value = if_else(model == "TIAM-ECN" & scenario == "WP1 NetZero" & region == "EU27 & UK (*)" & variable == "Emissions|CO2|Energy|Supply|Electricity" & period == 2030, 72, value))
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Secondary Energy|Gases|Electricity`" = "`Secondary Energy|Gases|Hydrogen`", units = "EJ/yr") # TIAM-ECN reports syngas under "hydrogen", this script uses "electricity" 
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Secondary Energy|Liquids|Electricity`" = "`Secondary Energy|Liquids|Hydrogen`", units = "EJ/yr") # TIAM-ECN reports SE synliq under "hydrogen", this script uses "electricity" 
+
+# add missing GDP
+df_onlyModel <- df_onlyModel %>%
+  filter(variable != "GDP|MER") %>%
+  rbind(
+    df_woModel %>%
+      filter(variable == "GDP|MER") %>%
+      group_by(period, region, scenario) %>%
+      summarize(average_GDP = mean(value, na.rm = TRUE), .groups = 'drop') %>%
+      mutate(model = "TIAM-ECN",
+             unit = "billion EUR_2020/yr",
+             variable = "GDP|MER",
+             value = average_GDP) %>%
+      select(model, scenario, region, variable, unit, period, value)
+  )
+
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Emissions|CO2|Industrial Processes`" = "`Emissions|CO2|Energy and Industrial Processes` - `Emissions|CO2|Energy` ", units = "Mt CO2/yr")
 
 df <- rbind(df_woModel, df_onlyModel)
@@ -246,8 +258,6 @@ histOrigN_onlyModel <- filter(histOrigN, model == "UNFCCC")
 
 histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|CO2|Calc Other`" = "`Emi|CO2|Energy and Industrial Processes` - `Emi|CO2|Energy|Supply` - `Emi|CO2|Energy|Demand` - `Emi|CO2|Industrial Processes`", units = "Mt CO2/yr", completeMissing = TRUE) # UNFCCC mapping currently misses some emissions to match the totals 
 histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|GHG|Calc Other`" = "`Emi|GHG|Energy and Industrial Processes` - `Emi|GHG|Energy` - `Emi|GHG|Industrial Processes`", units = "Mt CO2e/yr", completeMissing = TRUE) # UNFCCC mapping currently misses some emissions to match the totals 
-histOrigN_onlyModel <- filter(histOrigN_onlyModel, variable != "Emi|GHG|LULUCF national accounting")
-histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|GHG|LULUCF national accounting`" = "`Emi|GHG|w/o Bunkers|LULUCF national accounting`", units = "Mt CO2/yr", completeMissing = TRUE)
 histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel, "`Emi|GHG|w/ intraEU Bunkers|LULUCF national accounting`" = "`Emi|GHG|w/o Bunkers|LULUCF national accounting` + 0.33 * `Emi|GHG|Energy|Demand|Transport|International Bunkers` ", units = "Mt CO2/yr", completeMissing = TRUE) # calculate ex-EU bunkers as 33% of total bunkers
 histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel,"`Emi|Kyoto Gases|non-CO2 calc`" = "`Emi|GHG|LULUCF national accounting` - `Emi|CO2|LULUCF national accounting`", units = "MtCO2e/yr", completeMissing = TRUE)
 histOrigN_onlyModel <- calc_addVariable(histOrigN_onlyModel,"`Emi|Kyoto Gases|non-CO2 calc|Land-Use Change`" = "`Emi|GHG|Land-Use Change|LULUCF national accounting` - `Emi|CO2|Land-Use Change|LULUCF national accounting`", units = "MtCO2e/yr", completeMissing = TRUE)
@@ -349,10 +359,7 @@ tmp <- df %>%
          region == "EU27 & UK (*)") %>%
   #         !(model %in% models_without_data)) %>%
   mutate(denominator= 39,
-         #df %>% filter(region == "EU27 & UK (*)", scenario == "WP1 NetZero", model == "REMIND", variable == "FE|SolLiqGas", period == "2020") %>% pull(value),
-         # XXX BRING BACK HISTORIC VALUES!
-         # mutate(denominator= histOrigN %>% filter(region == "EUR", model == "UNFCCC", variable == "Emi|GHG|LULUCF national accounting", period == "1990") %>% pull(value),
-         numerator=value) %>%
+          numerator=value) %>%
   mutate(value = 1-(numerator/denominator),
          variable = "FE|SolLiqGas reduction vs 2020",
          unit = "%") %>%
@@ -577,16 +584,31 @@ df_onlyModel <- calc_addVariable(df_onlyModel, "`Emi|Kyoto Gases|synthetic wo Bu
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Emi|Kyoto Gases|synthetic w/ intraEU Bunkers`" = "`Emi|Kyoto Gases|synthetic` - 0.667 * `Emissions|CO2|Energy|Demand|Bunkers`  ", units = "MtCO2e/yr", completeMissing = TRUE)
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Emi|Kyoto Gases|synthetic w/ intraEU Aviation`" = "`Emi|Kyoto Gases|synthetic` - (1 - 0.2091 ) * `Emissions|CO2|Energy|Demand|Bunkers`  ", units = "MtCO2e/yr", completeMissing = TRUE) # inserting the value of ShareIntraEUAviationInBunkers (0.2091) here, because calc_addVariable can't deal with exogenous parameters
 
-if (exists("calc_addScenPercentChange", mode = "function")) {
+
   df_onlyModel <- rbind(df_onlyModel, calc_addScenPercentChange(df_onlyModel, "Energy System Cost|Supply", "WP1 NPI", "NPi"))
-}
-if (exists("calc_addScenIncrease", mode = "function")) {
   df_onlyModel <- rbind(df_onlyModel, calc_addScenIncrease(df_onlyModel, "Energy System Cost|Supply", "WP1 NPI", "NPi"))
-}
 
-df <- rbind(df_woModel, df_onlyModel)
+df_onlyModel <- rbind(df_onlyModel, mutate(calcCumulatedDiscount(filter(df_onlyModel, scenario == "WP1 NetZero", model == "REMIND",period >= 2025, period <=2050, variable == "Energy System Cost|Supply|Inc over NPi"),
+                                                                nameVar="Energy System Cost|Supply|Inc over NPi", discount=0.00),
+                                          unit = "billion EUR_2020"))
+df_onlyModel <- rbind(df_onlyModel,mutate(calcCumulatedDiscount(filter(df_onlyModel,period >= 2025, period <=2050),"Energy System Cost|Supply", discount=0.00), unit = "billion EUR_2020"))
 
+df_onlyModel <- rbind(df_onlyModel, calc_addScenIncrease(df_onlyModel,"Energy System Cost|Supply|aggregated","WP1 NPI", "NPi") )
+df_onlyModel <- rbind(df_onlyModel, calc_addScenPercentChange(df_onlyModel,"Energy System Cost|Supply|aggregated","WP1 NPI", "NPi") )
 
+# consumption
+df_onlyModel <- rbind(df_onlyModel,mutate(calcCumulatedDiscount(filter(df_onlyModel,period >= 2025, period <=2050),
+                                                                "Consumption", discount=0.00), unit = "billion EUR_2020"))
+df_onlyModel <- rbind(df_onlyModel, calc_addScenIncrease(df_onlyModel,"Consumption|aggregated","WP1 NPI", "NPi") )
+df_onlyModel <- rbind(df_onlyModel, calc_addScenPercentChange(df_onlyModel,"Consumption|aggregated","WP1 NPI", "NPi") )
+
+# MAC
+df_onlyModel <- rbind(df_onlyModel,mutate(calcCumulatedDiscount(filter(df_onlyModel,period >= 2025, period <=2050),
+                                                                "Policy Cost|Area under MAC Curve", discount=0.00), unit = "billion EUR_2020"))
+
+# GDP
+df_onlyModel <- rbind(df_onlyModel,mutate(calcCumulatedDiscount(filter(df_onlyModel,period >= 2025, period <=2050),
+                                                                "GDP|MER", discount=0.00), unit = "billion EUR_2020"))
 # Emissions|Kyoto Gases reduction vs 1990
 
 tmp <- df_onlyModel %>%
@@ -603,7 +625,7 @@ tmp <- df_onlyModel %>%
 tmp2 <- df_onlyModel %>%
   filter(variable == "Emi|Kyoto Gases|synthetic wo Bunkers",
          region == "EU27 & UK (*)") %>%
-  mutate(denominator= histOrigN %>% filter(region == "EUR", model == "UNFCCC", variable == "Emi|GHG|LULUCF national accounting", period == "1990") %>% pull(value),
+  mutate(denominator= histOrigN %>% filter(region == "EUR", model == "UNFCCC", variable == "Emi|GHG|w/o Bunkers|LULUCF national accounting", period == "1990") %>% pull(value),
          numerator=value) %>%
   mutate(value = 1-(numerator/denominator),
          variable = "Emi|Kyoto Gases|synthetic wo Bunkers| reduction vs 1990",
@@ -623,6 +645,39 @@ tmp3 <- df_onlyModel %>%
   select(model, scenario, region, variable, unit, period, value)
 
 df <- rbind(df_woModel, df_onlyModel,tmp,tmp2, tmp3) 
+
+
+# -----# mitigation costs in absolute values ------------------------------------------
+
+modelPolicyCostConsLoss   <- c("REMIND","WITCH")
+modelPolicyCostMAC        <- c("IMAGE")
+modelPolicyCostEnSysCost  <- c("PRIMES","PROMETHEUS","TIAM-ECN")
+
+df_modelPolicyCostConsLoss    <- filter(df, model %in% modelPolicyCostConsLoss )
+df_modelPolicyCostMAC         <- filter(df, model %in% modelPolicyCostMAC )
+df_modelPolicyCostEnSysCost   <- filter(df, model %in% modelPolicyCostEnSysCost )
+df_modelsNoPolicyCosts        <- filter(df, !model %in% modelsFullSystem)
+
+df_modelPolicyCostConsLoss <- calc_addVariable(df_modelPolicyCostConsLoss, 
+                                               "`Mitigation costs|Absolute|aggregated`" = " - `Consumption|aggregated|Inc over NPi` ", 
+                                               units = "billion EUR_2020", completeMissing = TRUE)
+
+df_modelPolicyCostMAC <- calc_addVariable(df_modelPolicyCostMAC, 
+                                               "`Mitigation costs|Absolute|aggregated`" = "`Policy Cost|Area under MAC Curve|aggregated` ", 
+                                               units = "billion EUR_2020", completeMissing = TRUE)
+
+df_modelPolicyCostEnSysCost <- calc_addVariable(df_modelPolicyCostEnSysCost, 
+                                               "`Mitigation costs|Absolute|aggregated`" = "`Energy System Cost|Supply|aggregated|Inc over NPi` ", 
+                                               units = "billion EUR_2020", completeMissing = TRUE)
+
+
+
+
+
+
+df <- rbind(df_modelPolicyCostConsLoss, df_modelPolicyCostMAC, df_modelPolicyCostEnSysCost, df_modelsNoPolicyCosts)
+
+df <- calc_addVariable(df, "`Mitigation costs|Relative|aggregated`" = "100 * `Mitigation costs|Absolute|aggregated` / `GDP|MER|aggregated`", units = "%")
 
 
 # add_variables_VRE
@@ -679,7 +734,7 @@ histOrigN <- rbind(
   # EU27 used to carry a plain `Emi|GHG`; its successor in the newer mifs is the explicit
   # w/o bunkers variant (matches the old values to within the usual vintage drift).
   histOrigN %>% filter(region == "EU27", model == "UNFCCC", variable == "Emi|GHG|w/o Bunkers|LULUCF national accounting") %>%
-    mutate(variable = "Emissions|Kyoto Gases reduction vs 1990",
+    mutate(variable = "Emissions|Kyoto Gases|w/o Bunkers reduction vs 1990",
            value = 1 - (value / histOrigN %>% filter(region == "EU27", model == "UNFCCC", variable == "Emi|GHG|LULUCF national accounting", period == "1990") %>% pull(value) ) )
 )
 
