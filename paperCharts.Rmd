@@ -112,20 +112,6 @@ summary_stats <- list(
   Q3     = ~quantile(., probs = 0.75, na.rm = TRUE)
 )
 
-## ----------------- with intra-EU bunkers
-
-GHGemiWintraEUB <- df %>%
-  filter(variable == "Emi|Kyoto Gases|synthetic w/ intraEU Bunkers",
-         period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
-
-reductionsVs1990_GHGemiWintraEUB <- mutate(GHGemiWintraEUB, value = 1 - value/5453)
-
-quartiles_reductionsVs1990_GHGemiWintraEUB <- reductionsVs1990_GHGemiWintraEUB %>%
-  group_by(period) %>%
-  summarise_at(vars(value), summary_stats)
-
-## ----------------- with intra-EU aviation
-
 GHGemiWintraEUAv <- df %>%
   filter(variable == "Emi|Kyoto Gases|synthetic w/ intraEU Aviation",
          period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
@@ -136,40 +122,7 @@ quartiles_reductionsVs1990_GHGemiWintraEUAv <- reductionsVs1990_GHGemiWintraEUAv
   group_by(period) %>%
   summarise_at(vars(value), summary_stats)
 
-## ----------------- without bunkers
 
-GHGemiwoBunk <- df %>%
-  filter(variable == "Emi|Kyoto Gases|synthetic wo Bunkers",
-         period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
-
-reductionsVs1990_GHGemiWoB <- df %>%
-  filter(variable == "Emi|Kyoto Gases|synthetic wo Bunkers| reduction vs 1990",
-         period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
-quartiles_reductionsVs1990_GHGemiWoB <- reductionsVs1990_GHGemiWoB %>%
-  group_by(period) %>%
-  summarise_at(vars(value), summary_stats)
-
-## ----------------- with all bunkers
-
-reductionsVs1990_GHGemiWallEUB <- df %>%
-  filter(variable == "Emi|Kyoto Gases|synthetic| reduction vs 1990",
-         period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
-
-quartiles_reductionsVs1990_GHGemiWallEUB <- reductionsVs1990_GHGemiWallEUB %>%
-  group_by(period) %>%
-  summarise_at(vars(value), summary_stats)
-
-
-plotDatafull <- df %>%
-  filter(variable == "Emi|Kyoto Gases|synthetic w/ intraEU Bunkers| reduction vs 1990",
-         period %in% c(2010,2020,2030,2035,2040,2050),
-         scenario == "WP1 NetZero",
-         region == "EU27 & UK (*)", 
-         model %in% modelsFullSystem ) 
-plotData <- plotDatafull %>%
-  mutate (value = - value) %>%
-  group_by(period) %>%
-  summarise_at(vars(value), summary_stats)
 
 # non-CO2 emissions
 EmiNonCO2 <- df %>%
