@@ -71,6 +71,9 @@ if(!(downloadData) & !(rePrepareData) &(file.exists(dataRDSFile))){
     histRDS <- paste0("./data/", time, "/WP1_", time, "_hist.rds")
     histData <- readRDS(histRDS)
   }
+  # histData is what prepare_data.R saved as histOrigN, but the paper calculations below
+  # refer to it under the original name, which only exists when that script is sourced.
+  histOrigN <- histData
 } else {
   source("./prepare_data.R")
   dataFolder <- sort(list.dirs(path = "./data", full.names = TRUE, recursive = FALSE), decreasing = T)[1]
@@ -82,6 +85,14 @@ if(!(downloadData) & !(rePrepareData) &(file.exists(dataRDSFile))){
   histData <- histOrigN
   saveRDS(histData, histRDS)
 }
+
+# Euro-Calliope's 2030 results are not shown in the paper. Dropping them once here keeps
+# every chart consistent - no individual plot has to remember to filter them out.
+df <- df %>% filter(!(model == "Euro-Calliope" & period == 2030))
+
+# Electricity is reported in EJ/yr and charted in TWh/yr. Defined here rather than only in
+# prepare_data.R, which is not sourced when the cached rds is read.
+convertEJ2TWh <- 277.7777778
 
 ```
 
@@ -560,7 +571,9 @@ def <- list(
     wideLineSize = 0.5,
     wideAlpha = 0.3,
     pointSize = 1,
-    pointStroke = 1
+    pointStroke = 1,
+    # geom_label sizes are in mm: 3.5 mm is ~10pt, against the 12pt axis and legend text.
+    labelSize = 3.5
   )
 )
 
@@ -692,7 +705,7 @@ for( chart in names(g_data)){
     geom_line(data=g_data[[chart]][["data"]] %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) +
     geom_point(data = g_data[[chart]][["data"]] %>% filter(model == "median"), shape = def$median$shape, aes(colour = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
     geom_line(data=g_data[[chart]][["data"]] %>% filter(model == "Historical"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) +
-    geom_label(data = g_data[[chart]][["decade_change"]] %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5, size = 2) +
+    geom_label(data = g_data[[chart]][["decade_change"]] %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5, size = def$decadeChange$labelSize) +
     theme_paper() +
     facet_wrap(~ variable) + 
     scale_color_manual(name = "legend", values = setNames(color[levels(plotData$model)],levels(plotData$model)), guide = guide_legend(nrow = 2)) +
@@ -798,11 +811,11 @@ g[["Figure 1.b"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
   geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median", "Euro-Calliope")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(!model %in% c("median", "Euro-Calliope"), period > 2023), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-  geom_point(data = plotData %>% filter(model == "Euro-Calliope", period %in% c(2020, 2030, 2050)), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) + # Euro-Calliope as symbols only, no line
+  geom_point(data = plotData %>% filter(model == "Euro-Calliope", period %in% c(2020, 2050)), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) + # Euro-Calliope as symbols only, no line
   geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
   geom_line(data=plotData %>% filter(model == "Historical"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + 
-  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5, size = 2) +
+  geom_label(data = decade_change %>% filter(!is.na(prev_value)), aes(x = x, y = y, label = paste0(round(change_percentage, 1), "% / yr"), vjust = vAlign), fill = "#90D5FF", color = "black", label.padding = unit(0.25, "lines"), label.r = unit(0.15, "lines"), hjust = 0.5, label.size = 0, alpha = 0.5, size = def$decadeChange$labelSize) +
   theme_paper() + 
   scale_color_manual(name = "legend", values = setNames(color[levels(plotData$model)], levels(plotData$model)), guide = guide_legend(ncol = 2)) +
   scale_alpha_manual(values = modelAlpha) +
@@ -832,13 +845,13 @@ g[["Figure 1"]] <- gridExtra::arrangeGrob(
     theme(plot.margin = margin(b = 10, r=20)),
   g$`Emissions|CO2|Energy and Industrial Processes` +
     theme(legend.position="none") +
-    labs(title = expression(paste("(b) Net ", CO[2], " emissions - energy and industrial processes")), subtitle = expression(paste("Mt ", CO[2]," eq/yr"))) +
+    labs(title = expression(paste("(b) Net ", CO[2], " emissions - energy and industrial processes")), subtitle = expression(paste("Mt ", CO[2]," /yr"))) +
     theme(plot.margin = margin(b = 10, r=20),
           plot.title = element_text(hjust = 0.2)) +
       coord_cartesian(clip = "off"),
   g[["Figure 1.b"]] + 
     theme(plot.margin = margin(r = 60, t = 10), legend.margin = margin(l = 80)) + 
-    labs(title = expression(paste("(c) Net ", CO[2]," emissions from electricity generation")), subtitle = expression(paste("Mt ", CO[2]," eq/yr"))),
+    labs(title = expression(paste("(c) Net ", CO[2]," emissions from electricity generation")), subtitle = expression(paste("Mt ", CO[2]," /yr"))),
   layout_matrix = rbind(c(1, 2),
                         c(3, 3))
    )
@@ -880,7 +893,7 @@ plotDataRaw <- df %>%
       mutate(variable = "Secondary Energy|Electricity|WindSolar",
              model = "Historical")
     ) %>%
-  mutate(value = value*277.7777778) # EJ 2 TWh
+  mutate(value = value * convertEJ2TWh) # EJ 2 TWh
 
 plotData <- plotDataRaw %>%
   rbind(
@@ -926,7 +939,7 @@ g[["Electricity Generation from Wind and Solar"]] <- ggplot(plotData,aes(x=perio
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
   geom_line(data = plotData %>% filter((!(model %in% c("Historical", "median", "Euro-Calliope")))),size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(period > 2023, !model %in% c("median", "Euro-Calliope")), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-  geom_point(data = plotData %>% filter(model == "Euro-Calliope", period %in% c(2020, 2030, 2050)), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) + # Euro-Calliope as symbols only, no line
+  geom_point(data = plotData %>% filter(model == "Euro-Calliope", period %in% c(2020, 2050)), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) + # Euro-Calliope as symbols only, no line
   geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
   geom_line(data=plotData %>% filter(model == "Historical"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + 
@@ -956,8 +969,8 @@ plotDataRaw <- df %>%
            model == "Ember") %>%
       mutate(variable = "Secondary Energy|Electricity|VRE Share",
              model = "Historical")
-    )
-
+    ) %>%
+  mutate(value = value * 100) # the share variables are stored as fractions, the chart is in %
 
 plotData <- plotDataRaw %>%
   rbind(
@@ -998,11 +1011,11 @@ decade_change <- plotData %>%
 g[["Share in electricity generation"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
   annotate("rect", xmin = -Inf, xmax = histEnd(plotData), ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
-  annotate("text", x = 2012, y = 0.5, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
+  annotate("text", x = 2012, y = 50, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
   geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median", "Euro-Calliope")))), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(period > 2023, !model %in% c("median", "Euro-Calliope")), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
-  geom_point(data = plotData %>% filter(model == "Euro-Calliope", period %in% c(2020, 2030, 2050)), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) + # Euro-Calliope as symbols only, no line
+  geom_point(data = plotData %>% filter(model == "Euro-Calliope", period %in% c(2020, 2050)), aes(colour = model, shape = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) + # Euro-Calliope as symbols only, no line
   geom_line(data=plotData %>% filter(model == "median"), size=def$median$lineSize,aes(color=model,linetype=model, alpha = model)) + # models data
   geom_point(data = plotData %>% filter(model == "median"), aes(colour = model, shape = model), fill = "white", size = def$median$pointSize, stroke = def$median$pointStroke) +
   geom_line(data=plotData %>% filter(model == "Historical"), size=def$model$lineSize,aes(color=model,linetype=model, alpha = model)) + 
@@ -1013,10 +1026,10 @@ g[["Share in electricity generation"]] <- ggplot(plotData,aes(x=period,y=value))
   scale_shape_manual(name = "legend", values = modelShape, guide = guide_legend(nrow = 2)) +
   labs(title = "(b) Share of wind and solar in electricity generation", subtitle = "%") + 
   scale_x_continuous(expand = c(0, 0)) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 1, by = 0.2), limits = c(0,1), expand = c(0, 0)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 20), limits = c(0,100), expand = c(0, 0)) +
   coord_cartesian(clip = 'off') +
   theme(strip.text = element_blank()) +
-  expand_limits(y = c(0,1)) +
+  expand_limits(y = c(0,100)) +
   guides(linetype = "none", alpha = "none")
 
 g[["legend"]] <- g_legend(g$`Electricity Generation from Wind and Solar` + guides(color = guide_legend(nrow = 2)) + theme(plot.margin = margin(t = 20)))
@@ -1076,7 +1089,8 @@ plotDataRaw <- df %>%
            model == "IEA") %>%
       mutate(variable = "Final Energy|Electricity Share woBunkers woNonEnergy",
              model = "Historical")
-    )
+    ) %>%
+  mutate(value = value * 100) # the share variables are stored as fractions, the chart is in %
 
 plotData <- plotDataRaw %>%
   rbind(
@@ -1121,7 +1135,7 @@ decade_change <- plotData %>%
  g[["Figure 3"]] <- ggplot(plotData,aes(x=period,y=value)) +
   geom_segment(data = plotData %>% filter(period %% 10 == 0), aes(x = period, xend = period, y = 0, yend = value), color = def$grid$color, size = def$grid$lineSize, linetype = def$grid$linetype) + # vertical grid line
   annotate("rect", xmin = -Inf, xmax = histEnd(plotData), ymin = -Inf, ymax = Inf, fill = def$hist$areaColor, alpha = def$hist$alpha) + # historical area
-  annotate("text", x = 2012, y = 0.5, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
+  annotate("text", x = 2012, y = 50, label = "Historical", hjust = 0.5, vjust = 0.5, size = 15/.pt, color = "#888888") + # historical text
   geom_hline(yintercept=0, color = "black", linewidth= def$yAxis$linewidth, alpha = def$yAxis$alpha) + # y-axis zero
   geom_line(data=plotData %>% filter((!(model %in% c("Historical", "median")))), size=def$model$lineSize,aes(color=model,linetype=carrier, alpha = model), show.legend = c(linetype = FALSE, colour = TRUE)) + # models data
   geom_point(data = plotData %>% filter(!(model %in% c("Historical", "median")), period > 2023), shape = def$model$shape, aes(colour = model), fill = "white", size = def$model$pointSize, stroke = def$model$pointStroke) +
@@ -1136,8 +1150,8 @@ decade_change <- plotData %>%
   scale_x_continuous(expand = c(0, 0)) +
   coord_cartesian(clip = 'off') +
   theme(strip.text = element_blank()) +
-  expand_limits(y = c(0,1)) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.7, by = 0.1), limits = c(0,0.75)) + 
+  expand_limits(y = c(0,100)) +
+  scale_y_continuous(breaks = seq(0, 70, by = 10), limits = c(0,75)) +
   theme(plot.margin = margin(r = 125, l = 125)) +
   guides(
     color = guide_legend(order = 1, nrow = 2),
@@ -1664,8 +1678,7 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
     filter(variable == "Mitigation costs|RelativeToGDP|aggregated",
            period == 2050,
            scenario %in% c("WP1 NetZero"),
-           region == "EU27 & UK (*)") %>% 
-    mutate(value = value / 100)
+           region == "EU27 & UK (*)") # already reported in % of GDP
 
   plotData <- plotDataRaw %>%
     mutate(
@@ -1679,7 +1692,7 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
     geom_point(data = plotData, shape = def$model$shape, aes(colour = model), fill = "white", size = 2, stroke = 2) +
     geom_text_repel(aes(label = model, colour = model),
       nudge_x = c(0.3,0.3,0.3,0.3,0.3),
-      nudge_y = c(-0.001,-0.001,0.001,0.002,0.001),
+      nudge_y = c(-0.1,-0.1,0.1,0.2,0.1),
       direction = "y",
       hjust = 0,
       segment.size = 0.6,
@@ -1687,7 +1700,7 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
       size = 3
     ) +
     theme_paper() +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0, 0.014, by = 0.005), limits = c(0,0.014)) +
+    scale_y_continuous(labels = scales::label_number(accuracy = 0.1), breaks = seq(0, 1.4, by = 0.5), limits = c(0,1.4)) +
     scale_x_continuous(limits = c(-0.6, 0.6)) + #, expand = expansion(mult = 0.2)) +
     theme(
       legend.position = "none",
@@ -1697,7 +1710,7 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
       axis.ticks.x = element_blank(),
       plot.margin = margin(b = 100, r = 20),
     ) +
-    labs(title = expression(paste("(b) Mitigation costs")), subtitle = "as share of GDP")
+    labs(title = expression(paste("(b) Mitigation costs")), subtitle = "% of GDP")
 
   
 ```
@@ -1760,6 +1773,21 @@ histStackedBars <- function(map, histModel = "IEA") {
       group_by(across(all_of(groupCols))) %>%
       summarise(value = mean(value, na.rm = TRUE), .groups = "drop") %>%
       mutate(model = "Historical (5yr average)", period = 2020)
+  )
+}
+
+# Shared look for the stacked charts: legend on the right and the same text sizes as
+# Figures 1-6. theme_paper() already sets the legend text to 12pt, only the placement
+# changes here. The unit goes under the title as a subtitle, as in Figures 1-6, so these
+# charts carry no y-axis label (theme_paper() blanks the axis titles anyway).
+theme_stacked <- function() {
+  theme(
+    axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
+    strip.text = element_text(size = 12, colour = "black"),
+    legend.position = "right",
+    legend.box = "vertical",
+    legend.key.width = unit(0.7, 'cm'),
+    plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
   )
 }
 
@@ -1872,13 +1900,8 @@ g[["primary_energy_stacked"]] <- ggplot(plotData_PE) +
   facet_wrap(~period, nrow = 1, scales = "free_x") +
   scale_fill_manual(values = pe_colors) +
   coord_cartesian(clip = 'off') +
-  theme(
-    axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
-    strip.text = element_text(size = 12, colour = "black"),
-    plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
-  ) +
-  ylab("Primary Energy (EJ/yr)") +
-  labs(title = "Primary Energy by Carrier") +
+  theme_stacked() +
+  labs(title = "Primary Energy by Carrier", subtitle = "EJ/yr") +
   force_panelsizes(cols = panelBarCounts(plotData_PE, plotData_PE_Total))
 
 ggsave(paste0(outFolder, "/svg/primary_energy_stacked.svg"), g[["primary_energy_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
@@ -1951,13 +1974,8 @@ if (nrow(plotData_CC) > 0) {
     facet_wrap(~period, nrow = 1) +
     scale_fill_manual(values = cc_colors) +
     coord_cartesian(clip = 'off') +
-    theme(
-      axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
-      strip.text = element_text(size = 12, colour = "black"),
-      plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
-    ) +
-    ylab("Carbon Capture (Mt CO2/yr)") +
-    labs(title = "Carbon Capture by Origin")
+    theme_stacked() +
+    labs(title = "Carbon Capture by Origin", subtitle = expression(paste("Mt ", CO[2], " /yr")))
   
   g[["carbon_capture_origin_stacked_with_EuroCalliope"]] <- ggplot(plotData_CC) +
     geom_hline(yintercept = 0, color = "black", linewidth = 1, alpha = 0.5) +
@@ -1967,13 +1985,8 @@ if (nrow(plotData_CC) > 0) {
     facet_wrap(~period, nrow = 1) +
     scale_fill_manual(values = cc_colors) +
     coord_cartesian(clip = 'off') +
-    theme(
-      axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
-      strip.text = element_text(size = 12, colour = "black"),
-      plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
-    ) +
-    ylab("Carbon Capture (Mt CO2/yr)") +
-    labs(title = "Carbon Capture by Origin")
+    theme_stacked() +
+    labs(title = "Carbon Capture by Origin", subtitle = expression(paste("Mt ", CO[2], " /yr")))
 
   ggsave(paste0(outFolder, "/svg/carbon_capture_origin_stacked.svg"), g[["carbon_capture_origin_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
   ggsave(paste0(outFolder, "/png/carbon_capture_origin_stacked.png"), g[["carbon_capture_origin_stacked"]], device = "png", width = 12, height = 8, dpi = 100, units = "in")
@@ -2061,13 +2074,8 @@ g[["final_energy_carrier_stacked"]] <- ggplot(plotData_FEC) +
   facet_wrap(~period, nrow = 1, scales = "free_x") +
   scale_fill_manual(values = fe_carrier_colors) +
   coord_cartesian(clip = 'off') +
-  theme(
-    axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
-    strip.text = element_text(size = 12, colour = "black"),
-    plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
-  ) +
-  ylab("Final Energy (EJ/yr)") +
-  labs(title = "Final Energy by Carrier") +
+  theme_stacked() +
+  labs(title = "Final Energy by Carrier", subtitle = "EJ/yr") +
   force_panelsizes(cols = panelBarCounts(plotData_FEC, plotData_FEC_Total))
 
 ggsave(paste0(outFolder, "/svg/final_energy_carrier_stacked.svg"), g[["final_energy_carrier_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
@@ -2173,13 +2181,8 @@ g[["final_energy_sector_stacked"]] <- ggplot(plotData_FES) +
   facet_wrap(~period, nrow = 1, scales = "free_x") +
   scale_fill_manual(values = fe_sector_colors) +
   coord_cartesian(clip = 'off') +
-  theme(
-    axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
-    strip.text = element_text(size = 12, colour = "black"),
-    plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
-  ) +
-  ylab("Final Energy (EJ/yr)") +
-  labs(title = "Final Energy per Sector") +
+  theme_stacked() +
+  labs(title = "Final Energy per Sector", subtitle = "EJ/yr") +
   force_panelsizes(cols = panelBarCounts(plotData_FES, plotData_FES_Total))
 
 ggsave(paste0(outFolder, "/svg/final_energy_sector_stacked.svg"), g[["final_energy_sector_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
@@ -2323,14 +2326,13 @@ if (nrow(plotData_FE_SC) > 0) {
     facet_grid(sector ~ period, scales = "free") +
     scale_fill_manual(values = fe_carrier_colors) +
     coord_cartesian(clip = 'off') +
+    theme_stacked() +
     theme(
-      axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
-      strip.text = element_text(size = 11, colour = "black", face = "bold"),
-      strip.text.y = element_text(angle = 0, hjust = 0, size = 11, colour = "black", face = "bold"),
+      strip.text = element_text(size = 12, colour = "black", face = "bold"),
+      strip.text.y = element_text(angle = 0, hjust = 0, size = 12, colour = "black", face = "bold"),
       plot.margin = margin(t = 20, r = 40, b = 20, l = 20)
     ) +
-    ylab("Final Energy (EJ/yr)") +
-    labs(title = "Final Energy per Sector and Carrier") +
+    labs(title = "Final Energy per Sector and Carrier", subtitle = "EJ/yr") +
     force_panelsizes(cols = panelBarCounts(plotData_FE_SC, plotData_FE_SC_Total))
 
   ggsave(paste0(outFolder, "/svg/final_energy_sector_carrier_stacked.svg"), g[["final_energy_sector_carrier_stacked"]], device = "svg", width = 14, height = 14, dpi = 100, units = "in")
@@ -2439,13 +2441,8 @@ g[["secondary_energy_electricity_stacked"]] <- ggplot(plotData_SEE) +
   scale_x_discrete(limits = orderElecModels) +
   scale_fill_manual(values = elec_colors) +
   coord_cartesian(clip = 'off') +
-  theme(
-    axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
-    strip.text = element_text(size = 12, colour = "black"),
-    plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
-  ) +
-  ylab("(TWh/yr)") +
-  labs(title = "Electricity Generation by Source") +
+  theme_stacked() +
+  labs(title = "Electricity Generation by Source", subtitle = "TWh/yr") +
   force_panelsizes(cols = panelBarCounts(plotData_SEE, plotData_SEE_Total))
 
 ggsave(paste0(outFolder, "/svg/secondary_energy_electricity_stacked.svg"), g[["secondary_energy_electricity_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
@@ -2466,18 +2463,19 @@ g[["secondary_energy_electricity_stacked"]]
 
 Historical source: Ember, plus IRENA for geothermal
 - PRIMES does not report electric capacity at all and LIMES only reports the total, so those two bars stay empty.
-- Storage is left out of the stack: its power capacity is not part of the reported "Capacity|Electricity" total, so including it would push the bars above the diamonds.
+- Storage power capacity (`Capacity|Electricity|Storage|Power`) is stacked on top. It is not part of the reported "Capacity|Electricity" total, so wherever a model reports it the bar stands above its own total diamond by exactly the storage segment. Ember reports no historical storage, so the historical bars have no storage segment.
 - Ember covers every category except geothermal (about 0.9 GW in the EU), which comes from IRENA. The two combine cleanly - Ember's renewables capacity is IRENA data anyway, hydro, solar and wind match to four decimals.
 - No source reports a usable historical capacity total across 2018-2022, so the historical bars carry no total diamond. Eurostat stops at 2018; the IEA WEO 2025 gives 2023 but is scope-inconsistent against Ember (solar matches to 0.02% while hydro is +67% and coal +52%), so it is not used.
 
 
 ```{r capacity_electricity_stacked, echo=FALSE, include=FALSE}
 
-# Storage is left out of the stack: its power capacity is not part of the reported
-# "Capacity|Electricity" total, so including it would push the bars above the diamonds.
-# PRIMES does not report electric capacity at all and LIMES only reports the total, so
-# those two bars stay empty.
-cap_elec_vars <- setNames(paste0("Capacity|Electricity|", names(elec_colors)), names(elec_colors))
+cap_elec_cats <- c("Storage", names(elec_colors))
+cap_elec_colors <- c("Storage" = unname(mip::plotstyle("Storage")), elec_colors)
+cap_elec_vars <- setNames(
+  c("Capacity|Electricity|Storage|Power", paste0("Capacity|Electricity|", names(elec_colors))),
+  cap_elec_cats
+)
 
 # Ember again, for consistency with the generation chart, plus IRENA for geothermal.
 # No source reports a historical capacity total across 2018-2022 - Eurostat stops at 2018
@@ -2513,7 +2511,7 @@ plotData_CAP <- plotData_CAP %>%
   mutate(model = as.character(model), category = capLabelMap[as.character(variable)]) %>%
   select(model, period, category, value) %>%
   bind_rows(histStackedBars(cap_elec_hist_map, histModel = "Ember")) %>%
-  mutate(category = factor(category, levels = names(elec_colors)),
+  mutate(category = factor(category, levels = cap_elec_cats),
          model = factor(model, levels = elecModelOrder))
 
 plotData_CAP_Total <- df %>%
@@ -2537,15 +2535,10 @@ g[["capacity_electricity_stacked"]] <- ggplot(plotData_CAP) +
   theme_paper() +
   facet_wrap(~period, nrow = 1, scales = "free_x") +
   scale_x_discrete(limits = orderElecModels) +
-  scale_fill_manual(values = elec_colors) +
+  scale_fill_manual(values = cap_elec_colors) +
   coord_cartesian(clip = 'off') +
-  theme(
-    axis.text.x = element_text(size = 10, angle = 90, hjust = 1, vjust = 0.5),
-    strip.text = element_text(size = 12, colour = "black"),
-    plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
-  ) +
-  ylab("(GWe)") +
-  labs(title = "Electric Capacity by Source") +
+  theme_stacked() +
+  labs(title = "Electric Capacity by Source", subtitle = "GWe") +
   force_panelsizes(cols = panelBarCounts(plotData_CAP, plotData_CAP_Total))
 
 ggsave(paste0(outFolder, "/svg/capacity_electricity_stacked.svg"), g[["capacity_electricity_stacked"]], device = "svg", width = 12, height = 8, dpi = 100, units = "in")
