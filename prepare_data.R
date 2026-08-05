@@ -193,6 +193,20 @@ df_onlyModel <- df_onlyModel %>%
              value = 2/3 * average_emissions) %>%
       select(model, scenario, region, variable, unit, period, value)
   )
+# add missing GDP
+df_onlyModel <- df_onlyModel %>%
+  filter(variable != "GDP|MER") %>%
+  rbind(
+    df_woModel %>%
+      filter(variable == "GDP|MER") %>%
+      group_by(period, region, scenario) %>%
+      summarize(average_GDP = mean(value, na.rm = TRUE), .groups = 'drop') %>%
+      mutate(model = "PROMETHEUS",
+             unit = "billion EUR_2020/yr",
+             variable = "GDP|MER",
+             value = average_GDP) %>%
+      select(model, scenario, region, variable, unit, period, value)
+  )
 
 df_onlyModel <- calc_addVariable(df_onlyModel, "`Emissions|CO2|Energy and Industrial Processes`" = "`Emissions|CO2|Energy and Industrial Processes` + `Emissions|CO2|Energy|Demand|Bunkers`", units = "Mt CO2/yr")
 df <- rbind(df_woModel, df_onlyModel)
@@ -267,19 +281,10 @@ histOrigN <- rbind(histOrigN_woModel, histOrigN_onlyModel)
 
 # calculate additional variables for all models -->
 
-
-#df <- calc_addVariable(df, "`Emi|Kyoto Gases|non-CO2 calc`" = "`Emissions|Kyoto Gases|non-CO2`", units = "MtCO2e/yr")
 df <- calc_addVariable(df, "`Emi|Kyoto Gases|non-CO2 calc`" = "`Emissions|Kyoto Gases` - `Emissions|CO2`", units = "MtCO2e/yr")
 df <- calc_addVariable(df, "`Emi|Kyoto Gases|non-CO2 DiffRepTocalc`" = "`Emissions|Kyoto Gases|non-CO2` - `Emi|Kyoto Gases|non-CO2 calc`", units = "MtCO2e/yr")
 
 df <- calc_addVariable(df, "`Carbon Removal|Geological Storage|ForPlotting`" = "-1 * `Carbon Removal|Geological Storage`", units = "MtCO2/yr")
-
-#energySystemCosts2025to2050Rel <- calcMitigationCost(df,"WP1 NPI","WP1 NetZero",yearFrom=2025,yearTo=2050,nameVar="Energy System Cost|Supply",discount=0.00)
-
-#df <- rbind(df,mutate(calcCumulatedDiscount(filter(df,period >= 2025, period <=2050),"Energy System Cost|Supply",nameDisrate=nameDisrate, discount=0.00), unit = "billion EUR_2020/yr"))
-#df <- rbind(df,calc_difference(filter(df,variable == "Energy System Cost|Supply"),dim = "scenario", entry = "WP1 NPI"))
-#df <- rbind(df,mutate(calcCumulatedDiscount(filter(df,period >= 2025, period <=2050),"Energy System Cost|Supply|difference",nameDisrate=nameDisrate, discount=0.00), unit = "billion EUR_2020/yr"))
-#energySystemCosts2025to2050Abs <- filter(df, variable == "Energy System Cost|Supply|difference|aggregated", period == 2050, scenario == "WP1 NetZero")
 
 #calculate_Elecshares
 
@@ -601,6 +606,9 @@ df_onlyModel <- rbind(df_onlyModel,mutate(calcCumulatedDiscount(filter(df_onlyMo
                                                                 "Consumption", discount=0.00), unit = "billion EUR_2020"))
 df_onlyModel <- rbind(df_onlyModel, calc_addScenIncrease(df_onlyModel,"Consumption|aggregated","WP1 NPI", "NPi") )
 df_onlyModel <- rbind(df_onlyModel, calc_addScenPercentChange(df_onlyModel,"Consumption|aggregated","WP1 NPI", "NPi") )
+df_onlyModel <- rbind(df_onlyModel, calc_addScenIncrease(df_onlyModel,"Consumption","WP1 NPI", "NPi") )
+df_onlyModel <- rbind(df_onlyModel, calc_addScenPercentChange(df_onlyModel,"Consumption","WP1 NPI", "NPi") )
+
 
 # MAC
 df_onlyModel <- rbind(df_onlyModel,mutate(calcCumulatedDiscount(filter(df_onlyModel,period >= 2025, period <=2050),
@@ -661,15 +669,23 @@ df_modelsNoPolicyCosts        <- filter(df, !model %in% modelsFullSystem)
 df_modelPolicyCostConsLoss <- calc_addVariable(df_modelPolicyCostConsLoss, 
                                                "`Mitigation costs|Absolute|aggregated`" = " - `Consumption|aggregated|Inc over NPi` ", 
                                                units = "billion EUR_2020", completeMissing = TRUE)
+df_modelPolicyCostConsLoss <- calc_addVariable(df_modelPolicyCostConsLoss, 
+                                               "`Mitigation costs|Absolute`" = " - `Consumption|Inc over NPi` ", 
+                                               units = "billion EUR_2020", completeMissing = TRUE)
 
 df_modelPolicyCostMAC <- calc_addVariable(df_modelPolicyCostMAC, 
                                                "`Mitigation costs|Absolute|aggregated`" = "`Policy Cost|Area under MAC Curve|aggregated` ", 
                                                units = "billion EUR_2020", completeMissing = TRUE)
+df_modelPolicyCostMAC <- calc_addVariable(df_modelPolicyCostMAC, 
+                                          "`Mitigation costs|Absolute`" = "`Policy Cost|Area under MAC Curve` ", 
+                                          units = "billion EUR_2020", completeMissing = TRUE)
 
 df_modelPolicyCostEnSysCost <- calc_addVariable(df_modelPolicyCostEnSysCost, 
                                                "`Mitigation costs|Absolute|aggregated`" = "`Energy System Cost|Supply|aggregated|Inc over NPi` ", 
                                                units = "billion EUR_2020", completeMissing = TRUE)
-
+df_modelPolicyCostEnSysCost <- calc_addVariable(df_modelPolicyCostEnSysCost, 
+                                                "`Mitigation costs|Absolute`" = "`Energy System Cost|Supply|Inc over NPi` ", 
+                                                units = "billion EUR_2020", completeMissing = TRUE)
 
 
 
@@ -677,7 +693,8 @@ df_modelPolicyCostEnSysCost <- calc_addVariable(df_modelPolicyCostEnSysCost,
 
 df <- rbind(df_modelPolicyCostConsLoss, df_modelPolicyCostMAC, df_modelPolicyCostEnSysCost, df_modelsNoPolicyCosts)
 
-df <- calc_addVariable(df, "`Mitigation costs|Relative|aggregated`" = "100 * `Mitigation costs|Absolute|aggregated` / `GDP|MER|aggregated`", units = "%")
+df <- calc_addVariable(df, "`Mitigation costs|RelativeToGDP|aggregated`" = "100 * `Mitigation costs|Absolute|aggregated` / `GDP|MER|aggregated`", units = "%")
+df <- calc_addVariable(df, "`Mitigation costs|RelativeToGDP`" = "100 * `Mitigation costs|Absolute` / `GDP|MER`", units = "%")
 
 
 # add_variables_VRE
@@ -697,10 +714,7 @@ df <- calc_addVariable(df, "`Trade|Energy`" = " `Trade|Primary Energy|Biomass|Vo
 + `Trade|Secondary Energy|Solids|Biomass|Volume` 
 + `Trade|Secondary Energy|Electricity|Volume` 
 + `Trade|Secondary Energy|Hydrogen|Volume` 
-#   #MESSAGE + `Trade|Secondary Energy|Liquids|Coal|Volume`
 + `Trade|Secondary Energy|Liquids|Electricity|Volume` ", units = "EJ/yr", completeMissing = TRUE)
-
-
 
 df <- calc_addVariable(df, "`Final Energy|Hydrogen Share woBunkers woNonEnergy`" = "(`Final Energy|Hydrogen` - `Final Energy|Bunkers|Hydrogen` - `Final Energy|Non-Energy Use|Hydrogen`) / (`Final Energy` - `Final Energy|Bunkers` - `Final Energy|Non-Energy Use`)", units = "%", completeMissing = TRUE)
 
@@ -744,22 +758,6 @@ histOrigN <- calc_addVariable(histOrigN,"`Emi|Kyoto Gases|non-CO2 calc`" = "`Emi
 histOrigN <- calc_addVariable(histOrigN, "`SE|Electricity|WindSolar`" = "`SE|Electricity|Wind` + `SE|Electricity|Solar`", units = "EJ/yr")
 histOrigN <- calc_addVariable(histOrigN, "`SE|Electricity|VRE Share`" = "`SE|Electricity|WindSolar` / `SE|Electricity`", units = "%")
 
-
-
-# Adding calculated Mitigation costs as share of consumption
-df <- rbind(df, 
-  data.frame(
-      model = c("IMAGE", "PROMETHEUS", "REMIND", "TIAM-ECN", "WITCH"),
-      value = c(0.003, 0.005, 0.010, 0.006, 0.021)  # converted to decimals
-    ) %>% 
-    mutate(
-      scenario = "WP1 NetZero",
-      region = "EU27 & UK (*)",
-      unit = "%",
-      variable = "Mitigation costs",
-      period = 2050) %>%
-    select(model, scenario, region, variable, unit, period, value)
-)
 
 ######### filter charts data #############
 
@@ -856,6 +854,9 @@ if (filterChartsData){
           variable %in% c(
             "Emi|CO2|Energy|Supply|Electricity w/ couple prod",
             "SE|Electricity|WindSolar",
+            "SE|Electricity|Nuclear",
+            "SE|Electricity|Biomass",
+            "SE|Electricity|Hydro",
             "SE|Electricity|VRE Share"
           )
         )

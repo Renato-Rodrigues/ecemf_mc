@@ -87,9 +87,19 @@ if(!(downloadData) & !(rePrepareData) &(file.exists(dataRDSFile))){
 
 <!-- ## paper calculations -->
 
-## GHG emission (synthetic)  reductions vs 1990 w/ intra-EU bunkers - calc
+### GHG emission (synthetic)  reductions vs 1990 w/ intra-EU bunkers - calc
 ```{r ghg_emissions_reductions_vs_1990_wIntraEU, echo=FALSE, include=FALSE}
 # paper calculations
+
+summary_stats <- list(
+  Min    = ~min(., na.rm = TRUE),
+  Mean   = ~mean(., na.rm = TRUE),
+  Median = ~median(., na.rm = TRUE),
+  Max    = ~max(., na.rm = TRUE),
+  Sd     = ~sd(., na.rm = TRUE),
+  Q1     = ~quantile(., probs = 0.25, na.rm = TRUE),
+  Q3     = ~quantile(., probs = 0.75, na.rm = TRUE)
+)
 
 ## ----------------- with intra-EU bunkers
 
@@ -101,14 +111,7 @@ reductionsVs1990_GHGemiWintraEUB <- mutate(GHGemiWintraEUB, value = 1 - value/54
 
 quartiles_reductionsVs1990_GHGemiWintraEUB <- reductionsVs1990_GHGemiWintraEUB %>%
   group_by(period) %>%
-  summarise_at(vars(value), list(
-    Min = min,
-    Mean = mean,
-    Median = median,
-    Max = max,
-    Sd = sd,
-    Q1=~quantile(., probs = 0.25),
-    Q3=~quantile(., probs = 0.75)))
+  summarise_at(vars(value), summary_stats)
 
 ## ----------------- with intra-EU aviation
 
@@ -120,7 +123,7 @@ reductionsVs1990_GHGemiWintraEUAv <- mutate(GHGemiWintraEUAv, value = 1 - value/
 
 quartiles_reductionsVs1990_GHGemiWintraEUAv <- reductionsVs1990_GHGemiWintraEUAv %>%
   group_by(period) %>%
-  summarise_at(vars(value), list( Min = min, Mean = mean, Median = median, Max = max, Sd = sd, Q1=~quantile(., probs = 0.25), Q3=~quantile(., probs = 0.75)))
+  summarise_at(vars(value), summary_stats)
 
 ## ----------------- without bunkers
 
@@ -133,14 +136,7 @@ reductionsVs1990_GHGemiWoB <- df %>%
          period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
 quartiles_reductionsVs1990_GHGemiWoB <- reductionsVs1990_GHGemiWoB %>%
   group_by(period) %>%
-  summarise_at(vars(value), list(
-    Min = min,
-    Mean = mean,
-    Median = median,
-    Max = max,
-    Sd = sd,
-    Q1=~quantile(., probs = 0.25),
-    Q3=~quantile(., probs = 0.75)))
+  summarise_at(vars(value), summary_stats)
 
 ## ----------------- with all bunkers
 
@@ -148,18 +144,9 @@ reductionsVs1990_GHGemiWallEUB <- df %>%
   filter(variable == "Emi|Kyoto Gases|synthetic| reduction vs 1990",
          period %in% c(2010,2020,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
 
-
-
 quartiles_reductionsVs1990_GHGemiWallEUB <- reductionsVs1990_GHGemiWallEUB %>%
   group_by(period) %>%
-  summarise_at(vars(value), list(
-    Min = min,
-    Mean = mean,
-    Median = median,
-    Max = max,
-    Sd = sd,
-    Q1=~quantile(., probs = 0.25),
-    Q3=~quantile(., probs = 0.75)))
+  summarise_at(vars(value), summary_stats)
 
 
 plotDatafull <- df %>%
@@ -171,18 +158,190 @@ plotDatafull <- df %>%
 plotData <- plotDatafull %>%
   mutate (value = - value) %>%
   group_by(period) %>%
-  summarise_at(vars(value), list(
-    Min = min,
-    Mean = mean,
-    Median = median,
-    Max = max,
-    Sd = sd,
-    Q1=~quantile(., probs = 0.25),
-    Q3=~quantile(., probs = 0.75)))
+  summarise_at(vars(value), summary_stats)
+
+# non-CO2 emissions
+EmiNonCO2 <- df %>%
+  filter(variable == "Emissions|Kyoto Gases|non-CO2 synthetic",
+         period %in% c(2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
+
+quartiles_EmiNonCO2 <- EmiNonCO2 %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+```
+
+
+### Other emissions
+```{r emissions, echo=FALSE, include=FALSE}
+# paper calculations
+
+# Carbon Capture
+CarbonCapture <- df %>%
+  filter(variable == "Carbon Capture",
+         period %in% c(2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
+
+quartiles_CarbonCapture <- CarbonCapture %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats) 
+
+# Electricity sector emissions
+ElecEmi <- df %>%
+  filter(variable == "Emissions|CO2|Energy|Supply|Electricity",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsElecall, model != "Euro-Calliope" )
+
+quartiles_ElecEmi <- ElecEmi %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# Electricity sector emission reductions vs 2007
+ElecEmiRedvs2007 <- df %>%
+  filter(variable == "Emissions|CO2|Energy|Supply|Electricity",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsElecall, model != "Euro-Calliope" ) %>% 
+  mutate (value = 100 * ( 1 - (value / 1405.78) ), 
+          unit = "%")
+
+quartiles_ElecEmiRedvs2007 <- ElecEmiRedvs2007 %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
     
 ```
 
-## Energy System Cost|Supply increases - calc
+### Energy System Values
+```{r energy_system_values, echo=FALSE, include=FALSE}
+# paper calculations
+
+VREShare <- df %>%
+  filter(variable == "Secondary Energy|Electricity|VRE Share",
+          period %in% c(2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsElecall, model != "Euro-Calliope" )
+
+quartiles_VREShare <- VREShare %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# WindSolar generation
+VRE <- df %>%
+  filter(variable == "Secondary Energy|Electricity|WindSolar",
+         period %in% c(2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsElecall, model != "Euro-Calliope" ) %>%
+  mutate(value = value * convertEJ2TWh) 
+
+quartiles_VRE <- VRE %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# Hydro generation vs 2018-2022
+HydroHist20182022 <- filter(histOrigN, model == "Ember", variable == "SE|Electricity|Hydro",period %in% c(2018:2022))%>%
+        summarize(value = convertEJ2TWh * mean(value, na.rm = TRUE)) %>% pull(value)
+
+HydroElecRelativeTo20182022 <- df %>%
+  filter(variable == "Secondary Energy|Electricity|Hydro",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsElecall, model != "Euro-Calliope" ) %>%
+  mutate(value = 100 * value * convertEJ2TWh / HydroHist20182022, unit = "%" ) 
+
+quartiles_HydroElecRelativeTo20182022 <- HydroElecRelativeTo20182022 %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# Nuclear generation vs 2018-2022
+NucHist20182022 <- filter(histOrigN, model == "Ember", variable == "SE|Electricity|Nuclear",period %in% c(2018:2022))%>%
+        summarize(value = convertEJ2TWh * mean(value, na.rm = TRUE)) %>% pull(value)
+
+NucElecRelativeTo20182022 <- df %>%
+  filter(variable == "Secondary Energy|Electricity|Nuclear",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsElecall, model != "Euro-Calliope" ) %>%
+  mutate(value = 100 * value * convertEJ2TWh / NucHist20182022, unit = "%" ) 
+
+quartiles_NucElecRelativeTo20182022 <- NucElecRelativeTo20182022 %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# Biomass generation vs 2018-2022
+BioElecHist20182022 <- filter(histOrigN, model == "Ember", variable == "SE|Electricity|Biomass",period %in% c(2018:2022))%>%
+        summarize(value = convertEJ2TWh * mean(value, na.rm = TRUE)) %>% pull(value)
+
+BioElec <- df %>%
+  filter(variable == "Secondary Energy|Electricity|Biomass",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsElecall, model != "Euro-Calliope" ) %>%
+  mutate(value = value * convertEJ2TWh , unit = "TWh" ) 
+
+BioElecRelativeTo20182022 <- BioElec %>%
+  mutate(value = 100 * value / BioElecHist20182022, unit = "%" ) 
+
+quartiles_BioElecRelativeTo20182022 <- BioElecRelativeTo20182022 %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# H2 share
+HyShare <- df %>%
+  filter(variable == "Final Energy|Hydrogen Share woBunkers woNonEnergy",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsFullSystem) %>%
+  mutate(value = value*100) 
+
+quartiles_HyShare <- HyShare %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# Elec share
+ElecShare <- df %>%
+  filter(variable == "Final Energy|Electricity Share woBunkers woNonEnergy",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsFullSystem ) %>%
+  mutate(value = value*100) 
+
+quartiles_ElecShare <- ElecShare %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# FeSolLiqGasRedvs2020
+FeSolLiqGasRedvs2020 <- df %>%
+  filter(variable == "FE|SolLiqGas reduction vs 2020",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsFullSystem )
+
+quartiles_FeSolLiqGasRedvs2020 <- FeSolLiqGasRedvs2020 %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# FossilFeSolLiqGas
+FossilFeSolLiqGas <- df %>%
+  filter(variable == "FE|SolLiqGas|Fossil",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsFullSystem )
+
+quartiles_FossilFeSolLiqGas <- FossilFeSolLiqGas %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# NetEnergyTrade
+NetEnergyTrade <- df %>%
+  filter(variable == "Trade|Energy",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", 
+         model %in% modelsFullSystem )
+
+quartiles_NetEnergyTrade <- NetEnergyTrade %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+# NetEnergyTradeShareOf20182022
+NetEnergyTradeShareOf20182022 <- NetEnergyTrade %>%
+  mutate(value = 100 * value / (-37.83))   # value taken from IEA Energy Balances
+
+quartiles_NetEnergyTradeShareOf20182022 <- NetEnergyTradeShareOf20182022 %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+```
+  
+### Energy System Cost|Supply increases and mitigation costs - calc
 ```{r energy_system_cost_increase, echo=FALSE, include=FALSE}
 # paper calculations
 
@@ -192,11 +351,32 @@ EnSysCostIncrease <- df %>%
 
 quartiles_EnSysCostIncrease <- EnSysCostIncrease %>%
   group_by(period) %>%
-  summarise_at(vars(value), list( Min = min, Mean = mean, Median = median, Max = max, Sd = sd, Q1=~quantile(., probs = 0.25), Q3=~quantile(., probs = 0.75)))
+  summarise_at(vars(value), summary_stats)
+
+# aggregated mitigation costs
+MitCostsAgg <- df %>%
+  filter(variable == "Mitigation costs|RelativeToGDP|aggregated",
+         period %in% c(2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
+
+quartiles_MitCostsAgg <- MitCostsAgg %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
+
+
+# mitigation costs
+MitCosts <- df %>%
+  filter(variable == "Mitigation costs|RelativeToGDP",
+         period %in% c(2020,2025,2030,2035,2040,2050), scenario == "WP1 NetZero", region == "EU27 & UK (*)", model %in% modelsFullSystem )
+
+quartiles_MitCosts <- MitCosts %>%
+  group_by(period) %>%
+  summarise_at(vars(value), summary_stats)
 
     
 ```
 
+
+## Prepare charts and themes
 ```{r create_charts, echo=FALSE, include=FALSE}
 
   # creating charts
@@ -398,6 +578,7 @@ dir.create(paste0(outFolder, "/png"), showWarnings = FALSE, recursive = TRUE)
 dir.create(paste0(outFolder, "/svg"), showWarnings = FALSE, recursive = TRUE)
 
 ```
+
 
 
 ## Figure 1
@@ -1406,6 +1587,8 @@ plotDataRaw <- df %>%
            scenario %in% c("WP1 NetZero"),
            region == "EU27 & UK (*)")
 
+carbonPrices <- plotDataRaw
+
 quartiles_CarbonPrices <- plotDataRaw %>%
   group_by(period) %>%
   summarise_at(vars(value), list( Min = min, Mean = mean, Median = median, Max = max, Sd = sd, Q1=~quantile(., probs = 0.25), Q3=~quantile(., probs = 0.75)))
@@ -1462,6 +1645,7 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
   scale_shape_manual(name = "legend", values = modelShape, guide = guide_legend(ncol = 1)) +
   labs(title = expression(paste("(a) Carbon Price")), subtitle = expression(paste("€/t", CO[2]))) + 
   scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(breaks = seq(0, 800, by = 200), limits = c(0,950), expand = c(0, 0)) +
   coord_cartesian(clip = 'off') + 
   theme(legend.position = "bottom",
         legend.key.height = unit(1, 'cm'),
@@ -1477,10 +1661,11 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
 ```{r Mitigation costs, echo=FALSE, include=FALSE}
 
   plotDataRaw <- df %>%
-    filter(variable == "Mitigation costs",
+    filter(variable == "Mitigation costs|RelativeToGDP|aggregated",
            period == 2050,
            scenario %in% c("WP1 NetZero"),
-           region == "EU27 & UK (*)")
+           region == "EU27 & UK (*)") %>% 
+    mutate(value = value / 100)
 
   plotData <- plotDataRaw %>%
     mutate(
@@ -1502,7 +1687,7 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
       size = 3
     ) +
     theme_paper() +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0, 0.025, by = 0.005), limits = c(0,0.025)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0, 0.014, by = 0.005), limits = c(0,0.014)) +
     scale_x_continuous(limits = c(-0.6, 0.6)) + #, expand = expansion(mult = 0.2)) +
     theme(
       legend.position = "none",
@@ -1512,7 +1697,7 @@ g[["Carbon Price"]] <- ggplot(plotData,aes(x=period,y=value)) +
       axis.ticks.x = element_blank(),
       plot.margin = margin(b = 100, r = 20),
     ) +
-    labs(title = expression(paste("(b) Mitigation costs")), subtitle = "as share of consumption")
+    labs(title = expression(paste("(b) Mitigation costs")), subtitle = "as share of GDP")
 
   
 ```
@@ -2209,7 +2394,8 @@ plotData_SEE <- df %>%
     period %in% c(2020, 2030, 2040, 2050),
     scenario == "WP1 NetZero",
     model %in% modelsElecall
-  )
+  ) %>%
+  mutate(value = value * convertEJ2TWh) 
 
 if ("EU27 & UK (*)" %in% unique(plotData_SEE$region)) {
   plotData_SEE <- plotData_SEE %>% filter(region == "EU27 & UK (*)")
@@ -2219,7 +2405,8 @@ seeLabelMap <- setNames(names(se_elec_vars), se_elec_vars)
 plotData_SEE <- plotData_SEE %>%
   mutate(model = as.character(model), category = seeLabelMap[as.character(variable)]) %>%
   select(model, period, category, value) %>%
-  bind_rows(histStackedBars(se_elec_hist_map, histModel = "Ember")) %>%
+  bind_rows(histStackedBars(se_elec_hist_map, histModel = "Ember") %>%
+            mutate(value = value * convertEJ2TWh) ) %>%
   mutate(category = factor(category, levels = names(elec_colors)),
          model = factor(model, levels = elecModelOrder))
 
@@ -2229,7 +2416,9 @@ plotData_SEE_Total <- df %>%
     period %in% c(2020, 2030, 2040, 2050),
     scenario == "WP1 NetZero",
     model %in% modelsElecall
-  )
+  ) %>%
+  mutate(value = value * convertEJ2TWh) 
+
 if ("EU27 & UK (*)" %in% unique(plotData_SEE_Total$region)) {
   plotData_SEE_Total <- plotData_SEE_Total %>% filter(region == "EU27 & UK (*)")
 }
@@ -2237,7 +2426,8 @@ plotData_SEE_Total <- plotData_SEE_Total %>%
   mutate(model = as.character(model)) %>%
   select(model, period, value) %>%
   bind_rows(histStackedBars(data.frame(variable = "SE|Electricity", stringsAsFactors = FALSE),
-                            histModel = "Ember")) %>%
+                            histModel = "Ember") %>%
+  mutate(value = value * convertEJ2TWh) ) %>%
   mutate(model = factor(model, levels = elecModelOrder))
 
 g[["secondary_energy_electricity_stacked"]] <- ggplot(plotData_SEE) +
@@ -2254,7 +2444,7 @@ g[["secondary_energy_electricity_stacked"]] <- ggplot(plotData_SEE) +
     strip.text = element_text(size = 12, colour = "black"),
     plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
   ) +
-  ylab("Secondary Energy | Electricity (EJ/yr)") +
+  ylab("(TWh/yr)") +
   labs(title = "Electricity Generation by Source") +
   force_panelsizes(cols = panelBarCounts(plotData_SEE, plotData_SEE_Total))
 
@@ -2354,7 +2544,7 @@ g[["capacity_electricity_stacked"]] <- ggplot(plotData_CAP) +
     strip.text = element_text(size = 12, colour = "black"),
     plot.margin = margin(t = 15, r = 25, b = 15, l = 20)
   ) +
-  ylab("Capacity | Electricity (GW)") +
+  ylab("(GWe)") +
   labs(title = "Electric Capacity by Source") +
   force_panelsizes(cols = panelBarCounts(plotData_CAP, plotData_CAP_Total))
 
